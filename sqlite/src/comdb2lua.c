@@ -20,7 +20,6 @@
 struct dbtable;
 struct dbtable *getqueuebyname(const char *);
 int bdb_get_sp_get_default_version(const char *, int *);
-
 #define COMDB2_NOT_AUTHORIZED_ERRMSG "comdb2: not authorized"
 
 int comdb2LocateSP(Parse *p, char *sp)
@@ -142,14 +141,297 @@ Cdb2TrigTables *comdb2AddTriggerTable(Parse *parse, Cdb2TrigTables *tables,
 	tmp->next = tables;
 	return tmp;
 }
+int isSchemaWhitespace(char c){
+	/* The ']' is here because that effectively acts as a whitespace seperator
+	   So does '[', but for these purposes that is unnecessary */
+	return c == ' ' || c == '\n' || c == ']';
+}
+char **get_entries(dbtable *db, int nCol){
+	char *old_csc2 = NULL;
+	if (get_csc2_file(db->tablename, -1 /*highest csc2_version*/, &old_csc2,
+                      NULL /*csc2len*/)) {
+        logmsg(LOGMSG_ERROR, "could not get schema (audited trigger)\n");
+        return NULL;
+    }
+	// TODO: this assumes that the schema is defined first
+	while(*old_csc2 != '{'){
+		old_csc2++;
+	}
+	old_csc2++;
+	int index_on = 0;
+	/* TODO: malloc -> comdb2_malloc */
+	char **entries = malloc(nCol * sizeof(char *));
+	for(int entry_on = 0; old_csc2[entry_on] != '}'; entry_on++){
+		/* ws = whitespace */
+		int search_index = index_on;
+		/* on_whitespace starts as true so that we can effectively 
+		trim the start of the string */
+		int on_whitespace = 1;
+		/* ws_found starts as -1 because when we finish trimming
+		the string, it will increase ws_found by 1*/
+		for(int ws_found = 0; ws_found < 2; search_index++){
+			if (old_csc2[search_index] == '}'){
+				break;
+			}
+			int now_on_ws = isSchemaWhitespace(old_csc2[search_index]);
+			if (!on_whitespace && now_on_ws) {
+				ws_found++;
+			}
+			on_whitespace = now_on_ws;
+		}
+		if (old_csc2[search_index] == '}'){
+			break;
+		}
+		while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
+		/* deals with arrays such as "cstring text [100] */
+		if (old_csc2[search_index] == '[') {
+			while(old_csc2[search_index] != ']'){search_index++;}
+			while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
+		}
+		int entry_len = search_index - index_on;
+		logmsg(LOGMSG_WARN, "entry len: %d\n", entry_len);
+		char *entry = malloc((entry_len + 1) * sizeof(char));
+		for(int i = 0; i < entry_len; i++){
+			entry[i] = old_csc2[index_on + i];
+		}
+		entry[entry_len] = 0;
+		index_on = search_index;
+		entries[entry_on] = entry;
+
+		while(1){
+			int i;
+			for(i = index_on; 
+				!isSchemaWhitespace(old_csc2[i]) && old_csc2[i] != '='; i++){
+				// Skip to next word (plausibly an equals)
+			}
+			while(isSchemaWhitespace(old_csc2[i])){i++;}
+			if(old_csc2[i] == '='){
+				i++;
+				// Skip to next word
+				while(isSchemaWhitespace(old_csc2[i])){i++;}
+				// Skip to next skip word
+				while(old_csc2[i] != '}' && !isSchemaWhitespace(old_csc2[i])){i++;}
+				// Skip to next line or attr
+				while(isSchemaWhitespace(old_csc2[i])){i++;}
+				index_on = i;
+			} else {
+				break;
+			}
+		} 
+	}
+	return entries;
+} 
+char *get_audit_schema(dbtable *db, int nCol){
+	char **entries = get_entries(db, nCol);
+	int len = 0;
+	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
+	len += strlen(schema_start);
+	/* "}" */
+	len += 1;
+	char *line_postfix = "null=yes ";
+	for(int i = 0; i < nCol; i++){
+		int line_size = strlen(entries[i]) + strlen(line_postfix);
+		int new_line = line_size + 5; /* +1 is for the "new_ " */
+		int old_line = line_size + 5; /* +5 is for the "old_ " */
+		len += new_line + old_line;
+	}
+	char *audit_schema = malloc((len + 1) * sizeof(char));
+	strcpy(audit_schema, schema_start);
+	int len_on = strlen(schema_start);
+	for(int i = 0; i < nCol; i++){
+		char *entry = entries[i];
+		int name_index = 0;
+		int on_whitespace = 1;
+		for(int ws_found = -1; ws_found < 1; name_index++){
+			int now_on_ws = isSchemaWhitespace(entry[name_index]);
+			if (on_whitespace && !now_on_ws) {
+				ws_found++;
+			}
+			on_whitespace = now_on_ws;
+		}
+		/* Name index decremneted so that it doesn't cut off first char of name */
+		name_index--;
+		char *type = malloc((name_index + 1) * sizeof(char));
+		char *name = malloc((strlen(entry) - name_index + 1) * sizeof(char));
+		memcpy(type, entry, name_index);
+		type[name_index + 1] = 0;
+		strcpy(name, entry + name_index);
+
+		strcpy(audit_schema + len_on, type);
+		len_on += strlen(type);
+		strcpy(audit_schema + len_on, "new_");
+		len_on += 4;
+		strcpy(audit_schema + len_on, name);
+		len_on += strlen(name);
+		strcpy(audit_schema + len_on, " ");
+		len_on += 1;
+		strcpy(audit_schema + len_on, line_postfix);
+		len_on += strlen(line_postfix);
+
+		strcpy(audit_schema + len_on, type);
+		len_on += strlen(type);
+		strcpy(audit_schema + len_on, "old_");
+		len_on += 4;
+		strcpy(audit_schema + len_on, name);
+		len_on += strlen(name);
+		strcpy(audit_schema + len_on, " ");
+		len_on += 1;
+		strcpy(audit_schema + len_on, line_postfix);
+		len_on += strlen(line_postfix);
+
+
+	}
+	strcpy(audit_schema + len_on, "}");
+	len_on += 1;
+	logmsg(LOGMSG_WARN, "audit schema: [%lu] %s\n", strlen(audit_schema), audit_schema);
+	/* Assert that len_on is correct */
+	assert(len_on == len);
+	return audit_schema;
+}
+char *get_audit_column_dec(Table *pTab){
+	int nCol = 3 + 2 * pTab->nCol;
+	char **aNames = malloc(nCol * sizeof(char *));
+	char **aTypes = malloc(nCol * sizeof(char *));
+	aNames[0] = "type";
+	aTypes[0] = "cstring(4)";
+	aNames[1] = "tbl";
+	aTypes[1] = "cstring(64)";
+	aNames[2] = "logtime";
+	aTypes[2] = "datetime";
+	for(int i = 3; i < nCol; i += 2){
+		Column col = pTab->aCol[(i - 3) / 2];
+		char *zName = col.zName;
+		int j = 0;
+		while(zName[j] != 0){
+			j++;
+		}
+		char *zType = zName + j + 1;
+		char *zNameAdjusted = malloc(strlen(zName) + 4);
+		strcpy(zNameAdjusted, "new_");
+		strcpy(zNameAdjusted + 4, zName);
+		char *zNameAdjustedOld = malloc(strlen(zName) + 4);
+		strcpy(zNameAdjustedOld, "old_");
+		strcpy(zNameAdjustedOld + 4, zName);
+		aNames[i] = zNameAdjusted;
+		aTypes[i] = zType;
+		aNames[i + 1] = zNameAdjustedOld;
+		aTypes[i + 1] = zType;
+	}
+	int column_dec_len = 0;
+	/* for "(" and ")" */
+	column_dec_len += 2;
+	for(int i = 0; i < nCol; i++){
+		column_dec_len += strlen(aNames[i]) + strlen(aTypes[i]);
+		column_dec_len += 3; /* for " " and ", " */
+	}
+	assert(false);
+	logmsg(LOGMSG_WARN, "found\n");
+	column_dec_len -= 2; /* get rid of final ", " */
+	char *column_dec = malloc(column_dec_len * sizeof(char));
+	int column_len_on = 0;
+	strcpy(column_dec + column_len_on, "(");
+	column_len_on += 1;
+	for(int i = 0; i < nCol; i++){
+		strcpy(column_dec + column_len_on, aNames[i]);
+		column_len_on += strlen(aNames[i]);
+		strcpy(column_dec + column_len_on, " ");
+		column_len_on += 1;
+		strcpy(column_dec + column_len_on, aTypes[i]);
+		column_len_on += strlen(aTypes[i]);
+		if (i != nCol -1){
+			strcpy(column_dec + column_len_on, ", ");
+			column_len_on += 2;
+		}
+	}
+	strcpy(column_dec + column_len_on, ")");
+	column_len_on += 1;
+	assert(column_len_on == column_dec_len);
+	return column_dec;
+}
+void comdb2CreateAuditTriggerTemp(Parse *parse, int dynamic, int seq, Token *proc,
+                         Cdb2TrigTables *tbl){
+
+	
+	Table *pTab = tbl->table;
+	char *column_dec = get_audit_column_dec(pTab);
+	// int nCol = 3 + 2 * pTab->nCol;
+	// How should I be mallocing?
+    /*
+	struct dbtable *db = get_dbtable_by_name(pTab->zName);
+	char *audit_schema = get_audit_schema(db, pTab->nCol);
+	*/
+	char *name_prefix = "audit_";
+	char *prefix = "create table ";
+	char *zName = malloc((strlen(pTab->zName) + strlen(name_prefix)) * sizeof(char));
+	char *postfix = " \n";
+	strcpy(zName, name_prefix);
+	strcpy(zName + strlen(name_prefix), pTab->zName);
+	char *sql_statment = 
+		malloc((strlen(prefix) + strlen(zName) + strlen(column_dec) + strlen(postfix)) * sizeof(char));
+	int len_on = 0;
+	strcpy(sql_statment + len_on, prefix);
+	len_on += strlen(prefix);
+	strcpy(sql_statment + len_on, zName);
+	len_on += strlen(zName);
+	strcpy(sql_statment + len_on, column_dec);
+	len_on += strlen(column_dec);
+	strcpy(sql_statment + len_on, postfix);
+	len_on += strlen(postfix);
+
+	// run_internal_sql("select * from numbers \n");
+	logmsg(LOGMSG_WARN, "sql statment: [%lu] %s\n", strlen(sql_statment), sqlite3_mprintf(sql_statment));
+	// run_internal_sql(sqlite3_mprintf(sql_statment));
+	// Currently I am going to get rid of any key constraints
+}
+struct schema_change_type *comdb2CreateAuditTriggerScehma(Parse *parse, int dynamic, int seq, Token *proc,
+                         Cdb2TrigTables *tbl){
+	struct schema_change_type *sc = new_schemachange_type();
+
+	// Guesses
+    sc->onstack = 1;
+	sc->type = DBTYPE_TAGGED_TABLE;
+	sc->scanmode = gbl_default_sc_scanmode;
+    sc->live = 1;
+	// Maybe need use_plan?
+	sc->addonly = 1;
+
+	// Not coppied but still a guess
+
+    sc->finalize = 1;
+	Table *pTab = tbl->table;
+	char *name = pTab->zName;
+	struct dbtable *db = get_dbtable_by_name(name);
+	sc->newcsc2 = get_audit_schema(db, tbl->table->nCol);
+
+	// Probably should add a dollar sign
+	char *prefix = "audit_";
+	int len_on = 0;
+	strcpy(sc->tablename + len_on, prefix);
+	len_on += strlen(prefix);
+	strcpy(sc->tablename + len_on, tbl->table->zName);
+
+
+    if (db->instant_schema_change) sc->instant_sc = 1;
+
+	// What is ODH? This is just copied from timepart
+	if (db->odh) sc->headers = 1;
+
+	return sc;
+}
+
+enum {
+  TRIGGER_GENERIC = 1,
+  TRIGGER_AUDITED = 2,
+};
 
 // dynamic -> consumer
 void comdb2CreateTrigger(Parse *parse, int dynamic, int seq, Token *proc,
                          Cdb2TrigTables *tbl)
 {
+	struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma(parse, dynamic, seq, proc, tbl);
+
     if (comdb2IsPrepareOnly(parse))
         return;
-
 #ifndef SQLITE_OMIT_AUTHORIZATION
     {
         if( sqlite3AuthCheck(parse, dynamic ? SQLITE_CREATE_LUA_CONSUMER :
@@ -232,8 +514,15 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, int seq, Token *proc,
 	sc->newcsc2 = strbuf_disown(s);
 	strbuf_free(s);
 	Vdbe *v = sqlite3GetVdbe(parse);
+
+	comdb2prepareNoRows(v, parse, 0, audit_sc, &comdb2SqlSchemaChange_tran,
+			    (vdbeFuncArgFree)&free_schema_change_type);
+	
+	
+	
 	comdb2prepareNoRows(v, parse, 0, sc, &comdb2SqlSchemaChange_tran,
 			    (vdbeFuncArgFree)&free_schema_change_type);
+				
 }
 
 void comdb2DropTrigger(Parse *parse, int dynamic, Token *proc)
