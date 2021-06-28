@@ -1045,6 +1045,7 @@ out:
 
 void comdb2CreateProcedure(Parse* pParse, Token* nm, Token* ver, Token* proc)
 {
+    logmsg(LOGMSG_WARN, "Creating procedure\n");
     if (comdb2IsPrepareOnly(pParse))
         return;
 
@@ -1057,8 +1058,10 @@ void comdb2CreateProcedure(Parse* pParse, Token* nm, Token* ver, Token* proc)
     }
 #endif
 
-    if (comdb2AuthenticateUserOp(pParse))
+    if (comdb2AuthenticateUserOp(pParse)){
+        logmsg(LOGMSG_WARN, "Failure on comdb2AuthenticateUserOp\n");
         return;
+    }
 
     char spname[MAX_SPNAME];
     char sp_version[MAX_SPVERSION_LEN];
@@ -1067,6 +1070,7 @@ void comdb2CreateProcedure(Parse* pParse, Token* nm, Token* ver, Token* proc)
 
     if (comdb2TokenToStr(nm, spname, sizeof(spname))) {
         setError(pParse, SQLITE_MISUSE, "Procedure name is too long");
+        logmsg(LOGMSG_WARN, "Failure on comdb2TokenToStr\n");
         return;
     }
 
@@ -1077,11 +1081,13 @@ void comdb2CreateProcedure(Parse* pParse, Token* nm, Token* ver, Token* proc)
     if (ver) {
         if (comdb2TokenToStr(ver, sp_version, sizeof(sp_version))) {
             setError(pParse, SQLITE_MISUSE, "Procedure version is too long");
+            logmsg(LOGMSG_WARN, "Cleanup\n");
             goto cleanup;
         }
         strcpy(sc->fname, sp_version);
     }
     copyNoSqlToken(v, pParse, &sc->newcsc2, proc);
+    logmsg(LOGMSG_WARN, "Procedure csc2: %s\n", sc->newcsc2);
     const char* colname[] = {"version"};
     const int coltype = OPFUNC_STRING_TYPE;
     OpFuncSetup stp = {1, colname, &coltype, 256};

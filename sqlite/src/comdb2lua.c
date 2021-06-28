@@ -254,7 +254,7 @@ char *get_audit_schema(dbtable *db, int nCol){
 		char *type = malloc((name_index + 1) * sizeof(char));
 		char *name = malloc((strlen(entry) - name_index + 1) * sizeof(char));
 		memcpy(type, entry, name_index);
-		type[name_index + 1] = 0;
+		type[name_index + 1] = '\0';
 		strcpy(name, entry + name_index);
 
 		strcpy(audit_schema + len_on, type);
@@ -288,101 +288,6 @@ char *get_audit_schema(dbtable *db, int nCol){
 	assert(len_on == len);
 	return audit_schema;
 }
-char *get_audit_column_dec(Table *pTab){
-	int nCol = 3 + 2 * pTab->nCol;
-	char **aNames = malloc(nCol * sizeof(char *));
-	char **aTypes = malloc(nCol * sizeof(char *));
-	aNames[0] = "type";
-	aTypes[0] = "cstring(4)";
-	aNames[1] = "tbl";
-	aTypes[1] = "cstring(64)";
-	aNames[2] = "logtime";
-	aTypes[2] = "datetime";
-	for(int i = 3; i < nCol; i += 2){
-		Column col = pTab->aCol[(i - 3) / 2];
-		char *zName = col.zName;
-		int j = 0;
-		while(zName[j] != 0){
-			j++;
-		}
-		char *zType = zName + j + 1;
-		char *zNameAdjusted = malloc(strlen(zName) + 4);
-		strcpy(zNameAdjusted, "new_");
-		strcpy(zNameAdjusted + 4, zName);
-		char *zNameAdjustedOld = malloc(strlen(zName) + 4);
-		strcpy(zNameAdjustedOld, "old_");
-		strcpy(zNameAdjustedOld + 4, zName);
-		aNames[i] = zNameAdjusted;
-		aTypes[i] = zType;
-		aNames[i + 1] = zNameAdjustedOld;
-		aTypes[i + 1] = zType;
-	}
-	int column_dec_len = 0;
-	/* for "(" and ")" */
-	column_dec_len += 2;
-	for(int i = 0; i < nCol; i++){
-		column_dec_len += strlen(aNames[i]) + strlen(aTypes[i]);
-		column_dec_len += 3; /* for " " and ", " */
-	}
-	assert(false);
-	logmsg(LOGMSG_WARN, "found\n");
-	column_dec_len -= 2; /* get rid of final ", " */
-	char *column_dec = malloc(column_dec_len * sizeof(char));
-	int column_len_on = 0;
-	strcpy(column_dec + column_len_on, "(");
-	column_len_on += 1;
-	for(int i = 0; i < nCol; i++){
-		strcpy(column_dec + column_len_on, aNames[i]);
-		column_len_on += strlen(aNames[i]);
-		strcpy(column_dec + column_len_on, " ");
-		column_len_on += 1;
-		strcpy(column_dec + column_len_on, aTypes[i]);
-		column_len_on += strlen(aTypes[i]);
-		if (i != nCol -1){
-			strcpy(column_dec + column_len_on, ", ");
-			column_len_on += 2;
-		}
-	}
-	strcpy(column_dec + column_len_on, ")");
-	column_len_on += 1;
-	assert(column_len_on == column_dec_len);
-	return column_dec;
-}
-void comdb2CreateAuditTriggerTemp(Parse *parse, int dynamic, int seq, Token *proc,
-                         Cdb2TrigTables *tbl){
-
-	
-	Table *pTab = tbl->table;
-	char *column_dec = get_audit_column_dec(pTab);
-	// int nCol = 3 + 2 * pTab->nCol;
-	// How should I be mallocing?
-    /*
-	struct dbtable *db = get_dbtable_by_name(pTab->zName);
-	char *audit_schema = get_audit_schema(db, pTab->nCol);
-	*/
-	char *name_prefix = "audit_";
-	char *prefix = "create table ";
-	char *zName = malloc((strlen(pTab->zName) + strlen(name_prefix)) * sizeof(char));
-	char *postfix = " \n";
-	strcpy(zName, name_prefix);
-	strcpy(zName + strlen(name_prefix), pTab->zName);
-	char *sql_statment = 
-		malloc((strlen(prefix) + strlen(zName) + strlen(column_dec) + strlen(postfix)) * sizeof(char));
-	int len_on = 0;
-	strcpy(sql_statment + len_on, prefix);
-	len_on += strlen(prefix);
-	strcpy(sql_statment + len_on, zName);
-	len_on += strlen(zName);
-	strcpy(sql_statment + len_on, column_dec);
-	len_on += strlen(column_dec);
-	strcpy(sql_statment + len_on, postfix);
-	len_on += strlen(postfix);
-
-	// run_internal_sql("select * from numbers \n");
-	logmsg(LOGMSG_WARN, "sql statment: [%lu] %s\n", strlen(sql_statment), sqlite3_mprintf(sql_statment));
-	// run_internal_sql(sqlite3_mprintf(sql_statment));
-	// Currently I am going to get rid of any key constraints
-}
 struct schema_change_type *comdb2CreateAuditTriggerScehma(Parse *parse, int dynamic, int seq, Token *proc,
                          Cdb2TrigTables *tbl){
 	struct schema_change_type *sc = new_schemachange_type();
@@ -395,9 +300,6 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(Parse *parse, int dyna
 	// Maybe need use_plan?
 	sc->addonly = 1;
 
-	// Not coppied but still a guess
-
-    sc->finalize = 1;
 	Table *pTab = tbl->table;
 	char *name = pTab->zName;
 	struct dbtable *db = get_dbtable_by_name(name);
@@ -418,6 +320,57 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(Parse *parse, int dyna
 
 	return sc;
 }
+char *gen_audited_lua(Parse *parse, Table *pTab, char *spname){
+	char *code = 
+"local function main(event)"
+"	local audit = db:table('audit')"
+"    local chg"
+"    if chg == nil then"
+"        chg = {}"
+"    end"
+"    if event.new ~= nil then"
+"        for k, v in pairs(event.new) do"
+"            chg['new_'..k] = v"
+"        end"
+"    end"
+"    if event.old ~= nil then"
+"        for k, v in pairs(event.old) do"
+"            chg['old_'..k] = v"
+"        end"
+"    end"
+"    chg.type = event.type"
+"    chg.tbl = event.name"
+"    chg.logtime = db:now()"
+"    return audit:insert(chg)"
+"end"
+;
+
+/*
+	Got to make this work at some point
+    if (comdb2TokenToStr(nm, spname, sizeof(spname))) {
+        setError(pParse, SQLITE_MISUSE, "Procedure name is too long");
+        logmsg(LOGMSG_WARN, "Failure on comdb2TokenToStr\n");
+        return;
+    }
+*/
+
+    struct schema_change_type *sc = new_schemachange_type();
+    strcpy(sc->tablename, spname);
+    sc->addsp = 1;
+	
+    strcpy(sc->fname, "built-in audit");
+    const char* colname[] = {"version"};
+    const int coltype = OPFUNC_STRING_TYPE;
+    OpFuncSetup stp = {1, colname, &coltype, 256};
+	Vdbe *v = sqlite3GetVdbe(parse);
+
+	/*
+    comdb2prepareOpFunc(v, parse, 1, sc, &comdb2ProcSchemaChange,
+                        (vdbeFuncArgFree)&free_schema_change_type, &stp);
+						*/
+	logmsg(LOGMSG_WARN, "whateves: %s, %p, %p\n", code, v, &stp);
+	return code;
+}
 
 enum {
   TRIGGER_GENERIC = 1,
@@ -425,7 +378,7 @@ enum {
 };
 
 // dynamic -> consumer
-void comdb2CreateTrigger(Parse *parse, int dynamic, int seq, Token *proc,
+void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token *proc,
                          Cdb2TrigTables *tbl)
 {
 	struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma(parse, dynamic, seq, proc, tbl);
@@ -515,13 +468,18 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, int seq, Token *proc,
 	strbuf_free(s);
 	Vdbe *v = sqlite3GetVdbe(parse);
 
+	logmsg(LOGMSG_WARN, "Type: %s\n", type->z);
+
+	run_internal_sql("BEGIN");
+
 	comdb2prepareNoRows(v, parse, 0, audit_sc, &comdb2SqlSchemaChange_tran,
 			    (vdbeFuncArgFree)&free_schema_change_type);
 	
-	
-	
 	comdb2prepareNoRows(v, parse, 0, sc, &comdb2SqlSchemaChange_tran,
 			    (vdbeFuncArgFree)&free_schema_change_type);
+
+	run_internal_sql("END");
+	logmsg(LOGMSG_WARN, "commit sent\n");
 				
 }
 
