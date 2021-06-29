@@ -90,17 +90,21 @@ static void reset_sc_thread(enum thrtype oldtype, struct schema_change_type *s)
  */
 static int mark_sc_in_llmeta_tran(struct schema_change_type *s, void *trans)
 {
+    logmsg(LOGMSG_WARN, "Marking sc in llmeta\n");
     int bdberr;
     int rc = SC_OK;
     void *packed_sc_data = NULL;
     size_t packed_sc_data_len;
     uuidstr_t us;
+    logmsg(LOGMSG_WARN, "Doing comdb2uuidstr\n");
     comdb2uuidstr(s->uuid, us);
+    logmsg(LOGMSG_WARN, "Finished comdb2uuidstr\n");
     logmsg(LOGMSG_INFO, "%s: table '%s' rqid [%llx %s]\n", __func__,
            s->tablename, s->rqid, us);
     if (pack_schema_change_type(s, &packed_sc_data, &packed_sc_data_len)) {
         sc_errf(s, "could not pack the schema change data for storage in "
                    "low level meta table\n");
+        logmsg(LOGMSG_WARN, "llmeta err\n");
         return SC_LLMETA_ERR;
     } else {
         unsigned retries;
@@ -108,6 +112,9 @@ static int mark_sc_in_llmeta_tran(struct schema_change_type *s, void *trans)
 
         /* mark the schema change in progress in the low level meta table,
          * retry several times */
+        logmsg(LOGMSG_WARN, "tablename: %s\n", s->tablename);
+        logmsg(LOGMSG_WARN, "iq: %p\n", s->iq);
+        logmsg(LOGMSG_WARN, "sc_seed: %llu\n", s->iq->sc_seed);
         for (retries = 0;
              retries < max_retries &&
              (bdb_set_in_schema_change(trans, s->tablename, packed_sc_data,
@@ -121,6 +128,7 @@ static int mark_sc_in_llmeta_tran(struct schema_change_type *s, void *trans)
                        "low level meta table, retrying ...\n");
             sleep(1);
         }
+        logmsg(LOGMSG_WARN, "Finished for\n");
         if (retries >= max_retries) {
             sc_errf(s, "could not mark schema change in progress in the "
                        "low level meta table, giving up after %u retries\n",
@@ -134,7 +142,9 @@ static int mark_sc_in_llmeta_tran(struct schema_change_type *s, void *trans)
         }
     }
 
+    logmsg(LOGMSG_WARN, "Freeing packed data");
     free(packed_sc_data);
+    logmsg(LOGMSG_WARN, "Returning rc");
     return rc;
 }
 
@@ -399,6 +409,7 @@ static int check_table_version(struct ireq *iq, struct schema_change_type *sc)
 static int do_ddl(ddl_t pre, ddl_t post, struct ireq *iq,
                   struct schema_change_type *s, tran_type *tran, scdone_t type)
 {
+    logmsg(LOGMSG_WARN, "starting do_ddl\n");
     int rc, bdberr = 0;
     if (s->finalize_only) {
         return s->sc_rc;
@@ -409,28 +420,42 @@ static int do_ddl(ddl_t pre, ddl_t post, struct ireq *iq,
             goto end;
         }
     }
+    logmsg(LOGMSG_WARN, "checking s->resume\n");
     if (!s->resume) {
+        logmsg(LOGMSG_WARN, "s->resume\n");   
         set_sc_flgs(s);
+        logmsg(LOGMSG_WARN, "set sc flags\n");   
 
         rc = trim_sc_history_entries(NULL, s->tablename);
-        if (rc)
+        logmsg(LOGMSG_WARN, "trim sc history entries\n");   
+        if (rc){
             logmsg(LOGMSG_ERROR,
                    "Cant cleanup comdb2_sc_history and keep last entries\n");
+        }
     }
-    if ((rc = mark_sc_in_llmeta_tran(s, NULL))) // non-tran ??
-        goto end;
+    logmsg(LOGMSG_WARN, "marking sc in ll meta with %p\n", s);
+    if ((rc = mark_sc_in_llmeta_tran(s, NULL))){ // non-tran ??
 
+        logmsg(LOGMSG_WARN, "goto end mark sc in llmeta tran\n");
+        goto end;
+    }
+
+    logmsg(LOGMSG_WARN, "s->resume\n");
     if (!s->resume && type == alter &&
         bdb_attr_get(thedb->bdb_attr, BDB_ATTR_SC_DETACHED)) {
+        logmsg(LOGMSG_WARN, "final if\n");
         sc_printf(s, "Starting Schema Change with seed 0x%llx\n",
                   flibc_htonll(iq->sc_seed));
         sbuf2printf(s->sb, "SUCCESS\n");
         s->sc_rc = SC_DETACHED;
     }
+    logmsg(LOGMSG_WARN, "broadcasting sc start\n");
 
     broadcast_sc_start(s->tablename, iq->sc_seed, iq->sc_host,
                        time(NULL));                   // dont care rcode
+    logmsg(LOGMSG_WARN, "finished broadcast sc start\n");
     rc = pre(iq, s, NULL);                            // non-tran ??
+    logmsg(LOGMSG_WARN, "pre-ed\n");
     if (type == alter && master_downgrading(s)) {
         s->sc_rc = SC_MASTER_DOWNGRADE;
         errstat_set_strf(
@@ -534,16 +559,24 @@ int do_alter_stripes(struct schema_change_type *s)
     return rc;
 }
 
+static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset);
+
 
 // TODO: Is this okay?
 int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans)
 {
-    logmsg(LOGMSG_WARN, "Performing trigger update\n");
-    struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma("numbers", 1);
-    logmsg(LOGMSG_WARN, "Dong ddl\n");
-    do_ddl(do_add_table, finalize_add_table, iq, audit_sc, trans, add);
-    logmsg(LOGMSG_WARN, "DDL ADD TABLE PERFORMED\n");
+    if (sc->is_trigger == AUDITED_TRIGGER){
+        struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma("numbers", 1);
+        audit_sc->iq = iq;
+        iq->sc = audit_sc;
+        int rc = do_ddl(do_add_table, finalize_add_table, iq, audit_sc, trans, add);
+        if (rc != 1){return rc;}
+        rc = do_finalize(finalize_add_table, iq, audit_sc, trans, add);
+        if (rc){return rc;}
+        iq->sc = sc;
+        logmsg(LOGMSG_WARN, "adding table ALL DONE\n");
+    }
     wrlock_schema_lk();
     javasp_do_procedure_wrlock(); 
     /* Create the table and procedure */
@@ -607,6 +640,7 @@ static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
     tran_type *trans = arg->trans;
     int rc = SC_OK;
     struct schema_change_type *s = arg->sc;
+    logmsg(LOGMSG_WARN, "Thing: %d\n", arg->started);
     free(arg);
 
     if (iq == NULL) {

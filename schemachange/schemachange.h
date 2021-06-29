@@ -62,6 +62,9 @@ struct dest {
 /* status for schema_change_type->addonly */
 enum { SC_NOT_ADD = 0, SC_TO_ADD = 1, SC_DONE_ADD = 2 };
 
+/* type for is_trigger */
+enum { NO_TRIGGER = 0, NORMAL_TRIGGER = 1, AUDITED_TRIGGER = 2 };
+
 struct schema_change_type {
     /*  ==========    persistent members ========== */
     unsigned long long rqid;

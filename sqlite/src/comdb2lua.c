@@ -381,7 +381,7 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token 
 {
 	int nCol = tbl->table->nCol;
 	logmsg(LOGMSG_WARN, "Table name: %s\n", tbl->table->zName);
-	/* struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehmaT(parse, dynamic, seq, proc, tbl);*/
+	//struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehmaT(parse, dynamic, seq, proc, tbl);
     if (comdb2IsPrepareOnly(parse))
         return;
 #ifndef SQLITE_OMIT_AUTHORIZATION
@@ -456,7 +456,7 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token 
 
 	// trigger add table:qname dest:method
 	struct schema_change_type *sc = new_schemachange_type();
-	sc->is_trigger = 1;
+	sc->is_trigger = AUDITED_TRIGGER;
 	sc->addonly = 1;
     sc->persistent_seq = seq;
 	logmsg(LOGMSG_WARN, "Current nCol: %d\n", nCol);
