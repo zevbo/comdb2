@@ -141,12 +141,12 @@ Cdb2TrigTables *comdb2AddTriggerTable(Parse *parse, Cdb2TrigTables *tables,
 	tmp->next = tables;
 	return tmp;
 }
-int isSchemaWhitespace(char c){
+int isSchemaWhitespaceT(char c){
 	/* The ']' is here because that effectively acts as a whitespace seperator
 	   So does '[', but for these purposes that is unnecessary */
 	return c == ' ' || c == '\n' || c == ']';
 }
-char **get_entries(dbtable *db, int nCol){
+char **get_entriesT(dbtable *db, int nCol){
 	char *old_csc2 = NULL;
 	if (get_csc2_file(db->tablename, -1 /*highest csc2_version*/, &old_csc2,
                       NULL /*csc2len*/)) {
@@ -173,7 +173,7 @@ char **get_entries(dbtable *db, int nCol){
 			if (old_csc2[search_index] == '}'){
 				break;
 			}
-			int now_on_ws = isSchemaWhitespace(old_csc2[search_index]);
+			int now_on_ws = isSchemaWhitespaceT(old_csc2[search_index]);
 			if (!on_whitespace && now_on_ws) {
 				ws_found++;
 			}
@@ -182,11 +182,11 @@ char **get_entries(dbtable *db, int nCol){
 		if (old_csc2[search_index] == '}'){
 			break;
 		}
-		while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
+		while(isSchemaWhitespaceT(old_csc2[search_index])){search_index++;}
 		/* deals with arrays such as "cstring text [100] */
 		if (old_csc2[search_index] == '[') {
 			while(old_csc2[search_index] != ']'){search_index++;}
-			while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
+			while(isSchemaWhitespaceT(old_csc2[search_index])){search_index++;}
 		}
 		int entry_len = search_index - index_on;
 		logmsg(LOGMSG_WARN, "entry len: %d\n", entry_len);
@@ -201,18 +201,18 @@ char **get_entries(dbtable *db, int nCol){
 		while(1){
 			int i;
 			for(i = index_on; 
-				!isSchemaWhitespace(old_csc2[i]) && old_csc2[i] != '='; i++){
+				!isSchemaWhitespaceT(old_csc2[i]) && old_csc2[i] != '='; i++){
 				// Skip to next word (plausibly an equals)
 			}
-			while(isSchemaWhitespace(old_csc2[i])){i++;}
+			while(isSchemaWhitespaceT(old_csc2[i])){i++;}
 			if(old_csc2[i] == '='){
 				i++;
 				// Skip to next word
-				while(isSchemaWhitespace(old_csc2[i])){i++;}
+				while(isSchemaWhitespaceT(old_csc2[i])){i++;}
 				// Skip to next skip word
-				while(old_csc2[i] != '}' && !isSchemaWhitespace(old_csc2[i])){i++;}
+				while(old_csc2[i] != '}' && !isSchemaWhitespaceT(old_csc2[i])){i++;}
 				// Skip to next line or attr
-				while(isSchemaWhitespace(old_csc2[i])){i++;}
+				while(isSchemaWhitespaceT(old_csc2[i])){i++;}
 				index_on = i;
 			} else {
 				break;
@@ -221,8 +221,8 @@ char **get_entries(dbtable *db, int nCol){
 	}
 	return entries;
 } 
-char *get_audit_schema(dbtable *db, int nCol){
-	char **entries = get_entries(db, nCol);
+char *get_audit_schemaT(dbtable *db, int nCol){
+	char **entries = get_entriesT(db, nCol);
 	int len = 0;
 	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
 	len += strlen(schema_start);
@@ -243,7 +243,7 @@ char *get_audit_schema(dbtable *db, int nCol){
 		int name_index = 0;
 		int on_whitespace = 1;
 		for(int ws_found = -1; ws_found < 1; name_index++){
-			int now_on_ws = isSchemaWhitespace(entry[name_index]);
+			int now_on_ws = isSchemaWhitespaceT(entry[name_index]);
 			if (on_whitespace && !now_on_ws) {
 				ws_found++;
 			}
@@ -288,7 +288,7 @@ char *get_audit_schema(dbtable *db, int nCol){
 	assert(len_on == len);
 	return audit_schema;
 }
-struct schema_change_type *comdb2CreateAuditTriggerScehma(Parse *parse, int dynamic, int seq, Token *proc,
+struct schema_change_type *comdb2CreateAuditTriggerScehmaT(Parse *parse, int dynamic, int seq, Token *proc,
                          Cdb2TrigTables *tbl){
 	struct schema_change_type *sc = new_schemachange_type();
 
@@ -303,7 +303,7 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(Parse *parse, int dyna
 	Table *pTab = tbl->table;
 	char *name = pTab->zName;
 	struct dbtable *db = get_dbtable_by_name(name);
-	sc->newcsc2 = get_audit_schema(db, tbl->table->nCol);
+	sc->newcsc2 = get_audit_schemaT(db, tbl->table->nCol);
 
 	// Probably should add a dollar sign
 	char *prefix = "audit_";
@@ -311,8 +311,6 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(Parse *parse, int dyna
 	strcpy(sc->tablename + len_on, prefix);
 	len_on += strlen(prefix);
 	strcpy(sc->tablename + len_on, tbl->table->zName);
-
-
     if (db->instant_schema_change) sc->instant_sc = 1;
 
 	// What is ODH? This is just copied from timepart
@@ -381,8 +379,9 @@ enum {
 void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token *proc,
                          Cdb2TrigTables *tbl)
 {
-	struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma(parse, dynamic, seq, proc, tbl);
-
+	int nCol = tbl->table->nCol;
+	logmsg(LOGMSG_WARN, "Table name: %s\n", tbl->table->zName);
+	/* struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehmaT(parse, dynamic, seq, proc, tbl);*/
     if (comdb2IsPrepareOnly(parse))
         return;
 #ifndef SQLITE_OMIT_AUTHORIZATION
@@ -460,6 +459,9 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token 
 	sc->is_trigger = 1;
 	sc->addonly = 1;
     sc->persistent_seq = seq;
+	logmsg(LOGMSG_WARN, "Current nCol: %d\n", nCol);
+	sc->nCol = nCol;
+	logmsg(LOGMSG_WARN, "Current nCol: %d\n", sc->nCol);
 	strcpy(sc->tablename, qname);
 	struct dest *d = malloc(sizeof(struct dest));
 	d->dest = strdup(method);
@@ -468,19 +470,9 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token 
 	strbuf_free(s);
 	Vdbe *v = sqlite3GetVdbe(parse);
 
-	logmsg(LOGMSG_WARN, "Type: %s\n", type->z);
-
-	run_internal_sql("BEGIN");
-
-	comdb2prepareNoRows(v, parse, 0, audit_sc, &comdb2SqlSchemaChange_tran,
-			    (vdbeFuncArgFree)&free_schema_change_type);
-	
 	comdb2prepareNoRows(v, parse, 0, sc, &comdb2SqlSchemaChange_tran,
 			    (vdbeFuncArgFree)&free_schema_change_type);
-
-	run_internal_sql("END");
-	logmsg(LOGMSG_WARN, "commit sent\n");
-				
+								
 }
 
 void comdb2DropTrigger(Parse *parse, int dynamic, Token *proc)
@@ -514,7 +506,6 @@ void comdb2DropTrigger(Parse *parse, int dynamic, Token *proc)
 		sqlite3ErrorMsg(parse, "no such trigger: %s", spname);
 		return;
 	}
-
 	// trigger drop table:qname
 	struct schema_change_type *sc = new_schemachange_type();
 	sc->is_trigger = 1;

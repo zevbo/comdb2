@@ -42,8 +42,14 @@
 #define SET_ANALYZE_THREAD(opt, val) opt += (val & 0xFFFF)
 #define GET_ANALYZE_THREAD(opt) (opt & 0xFFFF)
 
+struct sc_linked_list {
+	struct schema_change_type *sc;
+	struct sc_linked_list *next;
+};
+
 int  readIntFromToken(Token* t, int *rst);
 int  comdb2SqlSchemaChange_tran(OpFunc *arg);
+int  comdb2SqlSchemaChange_bigTran(OpFunc *arg);
 void comdb2CreateTableCSC2(Parse *, Token *, Token *, int, Token *, int, int);
 void comdb2AlterTableCSC2(Parse *, Token *, Token *, int, Token *, int dryrun);
 void comdb2DropTable(Parse *pParse, SrcList *pName);

@@ -16,11 +16,18 @@
 
 #ifndef INCLUDE_SC_QUEUES_H
 #define INCLUDE_SC_QUEUES_H
+// TODO: Check if this is okay
+#include "bdb_api.h"
+// TODO: Is this okay?
+#include "sc_add_table.h"
 
 int do_alter_queues_int(struct schema_change_type *);
 int consumer_change(const char *queuename, int consumern, const char *method);
 int add_queue_to_environment(char *table, int avgitemsz, int pagesize);
-int perform_trigger_update(struct schema_change_type *); //, char *config);
+int perform_trigger_update_int(struct schema_change_type *sc);
+/*
+int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
+    tran_type *tran); //, char *config); */
 int perform_trigger_update_replicant(const char *queue_name, scdone_t);
 int finalize_trigger(struct schema_change_type *);
 
@@ -37,5 +44,6 @@ int do_del_qdb_file(struct ireq *iq, struct schema_change_type *s,
 
 int finalize_del_qdb_file(struct ireq *iq, struct schema_change_type *s,
                           tran_type *tran);
+struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol);
 
 #endif

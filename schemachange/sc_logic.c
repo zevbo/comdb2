@@ -40,6 +40,7 @@
 #include "comdb2_atomic.h"
 #include "sc_callbacks.h"
 #include "views.h"
+#include "translistener.h"
 #include <debug_switches.h>
 
 void comdb2_cheapstack_sym(FILE *f, char *fmt, ...);
@@ -533,6 +534,25 @@ int do_alter_stripes(struct schema_change_type *s)
     return rc;
 }
 
+
+// TODO: Is this okay?
+int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
+    tran_type *trans)
+{
+    logmsg(LOGMSG_WARN, "Performing trigger update\n");
+    struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma("numbers", 1);
+    logmsg(LOGMSG_WARN, "Dong ddl\n");
+    do_ddl(do_add_table, finalize_add_table, iq, audit_sc, trans, add);
+    logmsg(LOGMSG_WARN, "DDL ADD TABLE PERFORMED\n");
+    wrlock_schema_lk();
+    javasp_do_procedure_wrlock(); 
+    /* Create the table and procedure */
+    int rc = perform_trigger_update_int(sc);
+    javasp_do_procedure_unlock();
+    unlock_schema_lk();
+    return rc;
+}
+
 char *get_ddl_type_str(struct schema_change_type *s)
 {
     if (s->addsp)
@@ -627,7 +647,7 @@ static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
     else if (s->showsp)
         rc = do_show_sp(s);
     else if (s->is_trigger)
-        rc = perform_trigger_update(s);
+        rc = perform_trigger_update(s, iq, trans);
     else if (s->is_sfunc)
         rc = do_lua_sfunc(s);
     else if (s->is_afunc)
@@ -637,8 +657,9 @@ static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
     else if (s->fastinit)
         rc = do_ddl(do_fastinit, finalize_fastinit_table, iq, s, trans,
                     fastinit);
-    else if (s->addonly)
+    else if (s->addonly){
         rc = do_ddl(do_add_table, finalize_add_table, iq, s, trans, add);
+    }
     else if (s->rename)
         if (s->rename == SC_RENAME_LEGACY)
             rc = do_ddl(do_rename_table, finalize_rename_table, iq, s, trans,
