@@ -574,8 +574,15 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         if (rc != 1){return rc;}
         rc = do_finalize(finalize_add_table, iq, audit_sc, trans, add);
         if (rc){return rc;}
+        struct schema_change_type *proc_sc = gen_audited_lua("audit_numbers", sc->tablename + 3);
+        logmsg(LOGMSG_WARN, "proc_sc got\n");
+        iq->sc = proc_sc;
+        do_add_sp(proc_sc, iq);
+        logmsg(LOGMSG_WARN, "proc_sc do with rc %d\n", rc);
+        finalize_add_sp(proc_sc);
+        if (rc){return rc;}
+        logmsg(LOGMSG_WARN, "creating proc ALL DONE\n");
         iq->sc = sc;
-        logmsg(LOGMSG_WARN, "adding table ALL DONE\n");
     }
     wrlock_schema_lk();
     javasp_do_procedure_wrlock(); 

@@ -400,11 +400,13 @@ fail:
 static int do_add_sp_int(struct schema_change_type *sc, struct ireq *iq)
 {
     int rc, version;
+    logmsg(LOGMSG_WARN, "starting add sp int\n");
     if (sc->fname[0] != 0) {
         rc = add_versioned_sp(sc);
     } else {
         rc = add_sp(sc, &version);
     }
+    logmsg(LOGMSG_WARN, "if 1 done\n");
     if (rc == 0) {
         ++gbl_lua_version;
         int bdberr;
@@ -418,8 +420,10 @@ static int do_add_sp_int(struct schema_change_type *sc, struct ireq *iq)
             strcpy(iq->errstat.errstr, sc->fname);
         }
     }
+    logmsg(LOGMSG_WARN, "if 2 done\n");
     free(sc->newcsc2);
     sc->newcsc2 = NULL;
+    logmsg(LOGMSG_WARN, "retunring\n");
     return rc;
 }
 static int do_del_sp_int(struct schema_change_type *sc, struct ireq *iq)

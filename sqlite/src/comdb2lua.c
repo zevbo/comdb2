@@ -318,57 +318,6 @@ struct schema_change_type *comdb2CreateAuditTriggerScehmaT(Parse *parse, int dyn
 
 	return sc;
 }
-char *gen_audited_lua(Parse *parse, Table *pTab, char *spname){
-	char *code = 
-"local function main(event)"
-"	local audit = db:table('audit')"
-"    local chg"
-"    if chg == nil then"
-"        chg = {}"
-"    end"
-"    if event.new ~= nil then"
-"        for k, v in pairs(event.new) do"
-"            chg['new_'..k] = v"
-"        end"
-"    end"
-"    if event.old ~= nil then"
-"        for k, v in pairs(event.old) do"
-"            chg['old_'..k] = v"
-"        end"
-"    end"
-"    chg.type = event.type"
-"    chg.tbl = event.name"
-"    chg.logtime = db:now()"
-"    return audit:insert(chg)"
-"end"
-;
-
-/*
-	Got to make this work at some point
-    if (comdb2TokenToStr(nm, spname, sizeof(spname))) {
-        setError(pParse, SQLITE_MISUSE, "Procedure name is too long");
-        logmsg(LOGMSG_WARN, "Failure on comdb2TokenToStr\n");
-        return;
-    }
-*/
-
-    struct schema_change_type *sc = new_schemachange_type();
-    strcpy(sc->tablename, spname);
-    sc->addsp = 1;
-	
-    strcpy(sc->fname, "built-in audit");
-    const char* colname[] = {"version"};
-    const int coltype = OPFUNC_STRING_TYPE;
-    OpFuncSetup stp = {1, colname, &coltype, 256};
-	Vdbe *v = sqlite3GetVdbe(parse);
-
-	/*
-    comdb2prepareOpFunc(v, parse, 1, sc, &comdb2ProcSchemaChange,
-                        (vdbeFuncArgFree)&free_schema_change_type, &stp);
-						*/
-	logmsg(LOGMSG_WARN, "whateves: %s, %p, %p\n", code, v, &stp);
-	return code;
-}
 
 enum {
   TRIGGER_GENERIC = 1,
@@ -411,7 +360,8 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token 
 		return;
 	}
 
-	if (comdb2LocateSP(parse, spname) != 0) {
+	// TODO: we should still do this if it is not audited
+	if (0 && comdb2LocateSP(parse, spname) != 0) {
 		return;
 	}
 
