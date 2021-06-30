@@ -956,7 +956,7 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol){
     logmsg(LOGMSG_WARN, "Gotten\n");
 
 	// Probably should add a dollar sign
-	char *prefix = "audit_";
+	char *prefix = "$audit_";
 	int len_on = 0;
 	strcpy(sc->tablename + len_on, prefix);
 	len_on += strlen(prefix);

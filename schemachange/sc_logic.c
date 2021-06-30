@@ -567,6 +567,7 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans)
 {
     if (sc->is_trigger == AUDITED_TRIGGER){
+        // TODO: audit_numbers and numbers should really not be hard coded
         struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma("numbers", 1);
         audit_sc->iq = iq;
         iq->sc = audit_sc;
@@ -574,7 +575,8 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         if (rc != 1){return rc;}
         rc = do_finalize(finalize_add_table, iq, audit_sc, trans, add);
         if (rc){return rc;}
-        struct schema_change_type *proc_sc = gen_audited_lua("audit_numbers", sc->tablename + 3);
+        // TODO: audit_numbers should not be hard coded
+        struct schema_change_type *proc_sc = gen_audited_lua("$audit_numbers", sc->tablename + 3);
         logmsg(LOGMSG_WARN, "proc_sc got\n");
         iq->sc = proc_sc;
         do_add_sp(proc_sc, iq);

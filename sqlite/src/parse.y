@@ -2451,11 +2451,9 @@ cmd ::= createkw LUA SCALAR FUNCTION nm(Q). {
 cmd ::= createkw LUA AGGREGATE FUNCTION nm(Q). {
 	comdb2CreateAggFunc(pParse, &Q);
 }
+ 
 
-trigger_type_opt ::= .
-trigger_type_opt ::= AUDITED.
-
-cmd ::= createkw LUA trigger_type_opt TRIGGER nm(Q) withsequence(S) ON table_trigger_event(T). {
+cmd ::= createkw LUA TRIGGER nm(Q) withsequence(S) ON table_trigger_event(T). {
   comdb2CreateTrigger(pParse,0,0,S,&Q,T);
 }
 
