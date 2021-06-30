@@ -91,7 +91,7 @@ struct schema_change_type {
     int fulluprecs;    /* 1 if we're doing full-table upgrade */
     int alteronly;
     int is_trigger;
-    int nCol; /* number of columns, TODO: -1 for not stated */
+    int nCol; /* number of columns, zTODO: -1 for not stated */
     size_t newcsc2_len;
     char *newcsc2; /* malloced buffer containing the new schema */
     enum convert_scan_mode scanmode;

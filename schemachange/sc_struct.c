@@ -82,6 +82,7 @@ void free_schema_change_type(struct schema_change_type *s)
     if (!s)
         return;
     if (s->newcsc2) {
+        logmsg(LOGMSG_WARN, "HEY! We are freeing newcsc2 in free_schema_change_type. PAY ATTENTION\n");
         free(s->newcsc2);
         s->newcsc2 = NULL;
     }
@@ -134,7 +135,7 @@ size_t schemachange_packed_size(struct schema_change_type *s)
         sizeof(s->avgitemsz) + sizeof(s->fastinit) + sizeof(s->newdtastripe) +
         sizeof(s->blobstripe) + sizeof(s->live) + sizeof(s->addonly) +
         sizeof(s->fulluprecs) + sizeof(s->partialuprecs) +
-        sizeof(s->alteronly) + sizeof(s->is_trigger) + /* sizeof(s->nCol) */ +
+        sizeof(s->alteronly) + sizeof(s->is_trigger) + sizeof(s->nCol) +
         sizeof(s->newcsc2_len) +
         s->newcsc2_len + sizeof(s->scanmode) + sizeof(s->delay_commit) +
         sizeof(s->force_rebuild) + sizeof(s->force_dta_rebuild) +
@@ -222,8 +223,8 @@ void *buf_put_schemachange(struct schema_change_type *s, void *p_buf,
     p_buf = buf_put(&s->alteronly, sizeof(s->alteronly), p_buf, p_buf_end);
 
     p_buf = buf_put(&s->is_trigger, sizeof(s->is_trigger), p_buf, p_buf_end);
-    // TODO: Is this the correct place? Does it even matter?
-    // p_buf = buf_put(&s->nCol, sizeof(s->nCol), p_buf, p_buf_end);
+    // zTODO: Is this the correct place? Does it even matter?
+    p_buf = buf_put(&s->nCol, sizeof(s->nCol), p_buf, p_buf_end);
 
     p_buf = buf_put(&s->newcsc2_len, sizeof(s->newcsc2_len), p_buf, p_buf_end);
 
@@ -429,9 +430,9 @@ void *buf_get_schemachange(struct schema_change_type *s, void *p_buf,
 
     p_buf = (uint8_t *)buf_get(&s->is_trigger, sizeof(s->is_trigger), p_buf,
                                p_buf_end);
-                               // TODO: Do I need this?
-    /* p_buf = (uint8_t *)buf_get(&s->nCol, sizeof(s->nCol), p_buf,
-                               p_buf_end); */
+                               // zTODO: Do I need this?
+    p_buf = (uint8_t *)buf_get(&s->nCol, sizeof(s->nCol), p_buf,
+                               p_buf_end);
 
     p_buf = (uint8_t *)buf_get(&s->newcsc2_len, sizeof(s->newcsc2_len), p_buf,
                                p_buf_end);

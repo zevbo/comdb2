@@ -142,17 +142,11 @@ Cdb2TrigTables *comdb2AddTriggerTable(Parse *parse, Cdb2TrigTables *tables,
 	return tmp;
 }
 
-enum {
-  TRIGGER_GENERIC = 1,
-  TRIGGER_AUDITED = 2,
-};
-
 // dynamic -> consumer
 void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token *proc,
                          Cdb2TrigTables *tbl)
 {
 	int nCol = tbl->table->nCol;
-	logmsg(LOGMSG_WARN, "Table name: %s\n", tbl->table->zName);
     if (comdb2IsPrepareOnly(parse))
         return;
 #ifndef SQLITE_OMIT_AUTHORIZATION
@@ -182,8 +176,24 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token 
 		return;
 	}
 
-	// TODO: we should still do this if it is not audited
-	if (0 && comdb2LocateSP(parse, spname) != 0) {
+	int is_trigger = NORMAL_TRIGGER;
+	if (type->z){
+		int len = strlen(type->z);
+		char *lower_case_type = malloc(len + 1);
+		for(int i = 0; i < len; i++){
+			lower_case_type[i] = tolower(type->z[i]);
+		}
+		lower_case_type[len] = 0;
+		if (strcmp(lower_case_type, "audited") == 0){
+			is_trigger = AUDITED_TRIGGER;
+		} else {
+			sqlite3ErrorMsg(parse, "bad trigger type: %s", type->z);
+			return;
+		}
+	}
+
+	// zTODO: we should still do this if it is not audited
+	if (is_trigger != AUDITED_TRIGGER && comdb2LocateSP(parse, spname) != 0) {
 		return;
 	}
 
@@ -228,12 +238,10 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token 
 
 	// trigger add table:qname dest:method
 	struct schema_change_type *sc = new_schemachange_type();
-	sc->is_trigger = AUDITED_TRIGGER;
+	sc->is_trigger = is_trigger;
 	sc->addonly = 1;
     sc->persistent_seq = seq;
-	logmsg(LOGMSG_WARN, "Current nCol: %d\n", nCol);
 	sc->nCol = nCol;
-	logmsg(LOGMSG_WARN, "Current nCol: %d\n", sc->nCol);
 	strcpy(sc->tablename, qname);
 	struct dest *d = malloc(sizeof(struct dest));
 	d->dest = strdup(method);

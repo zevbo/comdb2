@@ -793,14 +793,12 @@ int isSchemaWhitespace(char c){
 }
 
 char **get_entries(dbtable *db, int nCol){
-    logmsg(LOGMSG_WARN, "getting entries with db: %p\n", db);
 	char *old_csc2 = NULL;
 	if (get_csc2_file(db->tablename, -1 /*highest csc2_version*/, &old_csc2,
                       NULL /*csc2len*/)) {
         logmsg(LOGMSG_ERROR, "could not get schema (audited trigger)\n");
         return NULL;
     }
-    logmsg(LOGMSG_WARN, "Old_csc2: %s\n", old_csc2);
 	// TODO: this assumes that the schema is defined first
 	while(*old_csc2 != '{'){
 		old_csc2++;
@@ -808,10 +806,8 @@ char **get_entries(dbtable *db, int nCol){
 	old_csc2++;
 	int index_on = 0;
 	/* TODO: malloc -> comdb2_malloc */
-    logmsg(LOGMSG_WARN, "Mallocing entries\n");
 	char **entries = malloc(nCol * sizeof(char *));
 	for(int entry_on = 0; old_csc2[entry_on] != '}'; entry_on++){
-        logmsg(LOGMSG_WARN, "On entry: %d\n", entry_on);
 		/* ws = whitespace */
 		int search_index = index_on;
 		/* on_whitespace starts as true so that we can effectively 
@@ -839,7 +835,6 @@ char **get_entries(dbtable *db, int nCol){
 			while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
 		}
 		int entry_len = search_index - index_on;
-		logmsg(LOGMSG_WARN, "entry len: %d\n", entry_len);
 		char *entry = malloc((entry_len + 1) * sizeof(char));
 		for(int i = 0; i < entry_len; i++){
 			entry[i] = old_csc2[index_on + i];
@@ -873,7 +868,6 @@ char **get_entries(dbtable *db, int nCol){
 } 
 char *get_audit_schema(dbtable *db, int nCol){
 	char **entries = get_entries(db, nCol);
-    logmsg(LOGMSG_WARN, "Gotten entries\n");
 	int len = 0;
 	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
 	len += strlen(schema_start);
@@ -949,11 +943,8 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol){
 	// Maybe need use_plan?
 	sc->addonly = 1;
 
-    logmsg(LOGMSG_WARN, "Getting dbtable with name %s [%lu]\n", name, strlen(name));
 	struct dbtable *db = get_dbtable_by_name(name);
-    logmsg(LOGMSG_WARN, "Getting audit scheam: %p\n", db);
 	sc->newcsc2 = get_audit_schema(db, nCol);
-    logmsg(LOGMSG_WARN, "Gotten\n");
 
 	// Probably should add a dollar sign
 	char *prefix = "$audit_";
@@ -965,7 +956,6 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol){
 
 	// What is ODH? This is just copied from timepart
 	if (db->odh) sc->headers = 1;
-    logmsg(LOGMSG_WARN, "Returning audit sc\n");
 
 	return sc;
 }
@@ -992,7 +982,6 @@ struct schema_change_type *gen_audited_lua(char *table_name, char *spname){
     "    chg.logtime = db:now()\n"
     "    return audit:insert(chg)\n"
     "end\n";
-    logmsg(LOGMSG_WARN, "SPNAME: %s\n", spname);
     char *code = malloc((strlen(code_start) + strlen(code_end) + strlen(spname) + 1) * sizeof(char));
     strcat(code, code_start);
     strcat(code, table_name);

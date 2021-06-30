@@ -423,7 +423,7 @@ static int do_add_sp_int(struct schema_change_type *sc, struct ireq *iq)
     logmsg(LOGMSG_WARN, "if 2 done\n");
     free(sc->newcsc2);
     sc->newcsc2 = NULL;
-    logmsg(LOGMSG_WARN, "retunring\n");
+    logmsg(LOGMSG_WARN, "returning\n");
     return rc;
 }
 static int do_del_sp_int(struct schema_change_type *sc, struct ireq *iq)

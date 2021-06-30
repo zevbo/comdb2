@@ -2453,14 +2453,12 @@ cmd ::= createkw LUA AGGREGATE FUNCTION nm(Q). {
 }
  
 
-cmd ::= createkw LUA TRIGGER nm(Q) withsequence(S) ON table_trigger_event(T). {
-  comdb2CreateTrigger(pParse,0,0,S,&Q,T);
+cmd ::= createkw LUA TRIGGER nm(Q) withsequence(S) ON table_trigger_event(T) typetoken(Y). {
+  comdb2CreateTrigger(pParse,0,&Y,S,&Q,T);
 }
 
-consumer_type_opt ::= .
-
-cmd ::= createkw LUA consumer_type_opt(P) CONSUMER nm(Q) withsequence(S) ON table_trigger_event(T). {
-  comdb2CreateTrigger(pParse,1,&P,S,&Q,T);
+cmd ::= createkw LUA CONSUMER nm(Q) withsequence(S) ON table_trigger_event(T). {
+  comdb2CreateTrigger(pParse,1,0,S,&Q,T);
 }
 
 table_trigger_event(A) ::= table_trigger_event(B) COMMA LP TABLE fullname(T) FOR trigger_events(C) RP. {
