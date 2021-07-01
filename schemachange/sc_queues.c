@@ -380,7 +380,7 @@ static inline void set_empty_queue_options(struct schema_change_type *s)
 
 extern int get_physical_transaction(bdb_state_type *bdb_state,
         tran_type *logical_tran, tran_type **outtran, int force_commit);
-// TODO: IS it okay that I removed the static?
+// zTODO: IS it okay that I removed the static?
 int perform_trigger_update_int(struct schema_change_type *sc)
 {
     char *config = sc->newcsc2;
@@ -488,7 +488,7 @@ int perform_trigger_update_int(struct schema_change_type *sc)
     if ((rc = check_option_queue_coherency(sc, db)))
         goto done;
 
-    /* TODO: other checks: procedure with this name must not exist either */
+    /* zTODO: other checks: procedure with this name must not exist either */
 
     char **dests;
 
@@ -792,6 +792,7 @@ int isSchemaWhitespace(char c){
 	return c == ' ' || c == '\n' || c == ']';
 }
 
+// zTODO: use strcat when necessary
 char **get_entries(dbtable *db, int nCol){
 	char *old_csc2 = NULL;
 	if (get_csc2_file(db->tablename, -1 /*highest csc2_version*/, &old_csc2,
@@ -799,13 +800,13 @@ char **get_entries(dbtable *db, int nCol){
         logmsg(LOGMSG_ERROR, "could not get schema (audited trigger)\n");
         return NULL;
     }
-	// TODO: this assumes that the schema is defined first
+	// zTODO: this assumes that the schema is defined first
 	while(*old_csc2 != '{'){
 		old_csc2++;
 	}
 	old_csc2++;
 	int index_on = 0;
-	/* TODO: malloc -> comdb2_malloc */
+	/* zTODO: malloc -> comdb2_malloc */
 	char **entries = malloc(nCol * sizeof(char *));
 	for(int entry_on = 0; old_csc2[entry_on] != '}'; entry_on++){
 		/* ws = whitespace */

@@ -539,22 +539,42 @@ int do_alter_stripes(struct schema_change_type *s)
 
 static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset);
 
+char *get_table_name(char *newcsc2){
+    newcsc2 += strlen("table ");
+    int len = 0;
+    while(newcsc2[len] != '\n'){len++;}
+    // zTODO: fix all mallocs to some sort of comdb2 malloc
+    char *table_name = malloc((len + 1) * sizeof(char));
+    strncpy(table_name, newcsc2, len);
+    table_name[len] = '\0';
+    return table_name;
+}
 
-// TODO: Is this okay?
+// zTODO: Is this okay?
 int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans)
 {
     if (sc->is_trigger == AUDITED_TRIGGER){
-        // TODO: audit_numbers and numbers should really not be hard coded
-        struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma("numbers", 1);
+        char *table_name = get_table_name(sc->newcsc2);
+        logmsg(LOGMSG_WARN, "Table name: %s\n", table_name);
+        struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma(table_name, sc->nCol);
         audit_sc->iq = iq;
         iq->sc = audit_sc;
-        int rc = do_ddl(do_add_table, finalize_add_table, iq, audit_sc, trans, add);
-        if (rc != 1){return rc;}
+        int table_exists_rc = 15;
+        int rc = table_exists_rc;
+        for(int i = 1; rc == table_exists_rc; i++){
+            char *tn = audit_sc->tablename;
+            if (i == 2){
+                strcat(tn, "2");
+            } else if (i > 2) {
+                tn[strlen(tn) - 1] = i + '0';
+            }
+            rc = do_ddl(do_add_table, finalize_add_table, iq, audit_sc, trans, add);
+            if (rc != 1 && rc != table_exists_rc){return rc;}
+        }
         rc = do_finalize(finalize_add_table, iq, audit_sc, trans, add);
         if (rc){return rc;}
-        // TODO: audit_numbers should not be hard coded
-        struct schema_change_type *proc_sc = gen_audited_lua("$audit_numbers", sc->tablename + 3);
+        struct schema_change_type *proc_sc = gen_audited_lua(audit_sc->tablename, sc->tablename + 3);
         iq->sc = proc_sc;
         do_add_sp(proc_sc, iq);
         finalize_add_sp(proc_sc);
