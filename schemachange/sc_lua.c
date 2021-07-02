@@ -420,7 +420,8 @@ static int do_add_sp_int(struct schema_change_type *sc, struct ireq *iq)
             strcpy(iq->errstat.errstr, sc->fname);
         }
     }
-    logmsg(LOGMSG_WARN, "if 2 done\n");
+    logmsg(LOGMSG_WARN, "if 2 done: %p\n", sc);
+    logmsg(LOGMSG_WARN, "%s\n", sc->newcsc2);
     free(sc->newcsc2);
     sc->newcsc2 = NULL;
     logmsg(LOGMSG_WARN, "returning\n");

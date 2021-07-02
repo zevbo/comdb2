@@ -915,6 +915,7 @@ char *get_audit_schema(dbtable *db, int nCol){
 
 	}
 	strcat(audit_schema, "}");
+    logmsg(LOGMSG_WARN, "last index: %c\n", audit_schema[len]);
 	logmsg(LOGMSG_WARN, "audit schema: [%lu] %s\n", strlen(audit_schema), audit_schema);
 	/* Assert that len_on is correct */
 	return audit_schema;
@@ -934,10 +935,8 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol){
 
 	// Probably should add a dollar sign
 	char *prefix = "$audit_";
-	int len_on = 0;
-	strcpy(sc->tablename + len_on, prefix);
-	len_on += strlen(prefix);
-	strcpy(sc->tablename + len_on, name);
+	strcpy(sc->tablename, prefix);
+	strcat(sc->tablename, name);
     if (db->instant_schema_change) sc->instant_sc = 1;
 
 	// What is ODH? This is just copied from timepart

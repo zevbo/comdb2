@@ -561,18 +561,15 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         audit_sc->iq = iq;
         iq->sc = audit_sc;
         sc->audit_sc = audit_sc;
-        int table_exists_rc = 15;
-        int rc = table_exists_rc;
-        for(int i = 1; rc == table_exists_rc; i++){
+        int og_len = strlen(audit_sc->tablename);
+        for(int i = 2; get_dbtable_by_name(audit_sc->tablename); i++){
             char *tn = audit_sc->tablename;
-            if (i == 2){
-                strcat(tn, "2");
-            } else if (i > 2) {
-                tn[strlen(tn) - 1] = i + '0';
-            }
-            rc = do_ddl(do_add_table, finalize_add_table, iq, audit_sc, trans, add);
-            if (rc != SC_COMMIT_PENDING && rc != table_exists_rc){return rc;}
+            char *postfix_str = malloc((ceil(log(i)) + 1) * sizeof(char));
+            sprintf(postfix_str, "%d", i);
+            strcpy(audit_sc->tablename, postfix_str);
         }
+        int rc = do_ddl(do_add_table, finalize_add_table, iq, audit_sc, trans, add);
+        if (rc != SC_COMMIT_PENDING){return rc;}
         struct schema_change_type *proc_sc = gen_audited_lua(audit_sc->tablename, sc->tablename + 3);
         iq->sc = proc_sc;
         rc = do_add_sp(proc_sc, iq);
