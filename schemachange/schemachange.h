@@ -228,6 +228,7 @@ struct schema_change_type {
     unsigned set_running : 1;
     uint64_t seed;
     int nCol; /* number of columns, zTODO: -1 for not stated */
+    struct schema_change_type *audit_sc;
 };
 
 struct ireq;

@@ -560,6 +560,7 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma(table_name, sc->nCol);
         audit_sc->iq = iq;
         iq->sc = audit_sc;
+        sc->audit_sc = audit_sc;
         int table_exists_rc = 15;
         int rc = table_exists_rc;
         for(int i = 1; rc == table_exists_rc; i++){
@@ -570,15 +571,12 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
                 tn[strlen(tn) - 1] = i + '0';
             }
             rc = do_ddl(do_add_table, finalize_add_table, iq, audit_sc, trans, add);
-            if (rc != 1 && rc != table_exists_rc){return rc;}
+            if (rc != SC_COMMIT_PENDING && rc != table_exists_rc){return rc;}
         }
-        rc = do_finalize(finalize_add_table, iq, audit_sc, trans, add);
-        if (rc){return rc;}
         struct schema_change_type *proc_sc = gen_audited_lua(audit_sc->tablename, sc->tablename + 3);
         iq->sc = proc_sc;
-        do_add_sp(proc_sc, iq);
-        finalize_add_sp(proc_sc);
-        if (rc){return rc;}
+        rc = do_add_sp(proc_sc, iq);
+        if (rc != SC_COMMIT_PENDING){return rc;}
         iq->sc = sc;
     }
     wrlock_schema_lk();
@@ -589,6 +587,22 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     unlock_schema_lk();
     return rc;
 }
+
+// TODO -- what should this do? maybe log_scdone should be here
+int finalize_trigger(struct schema_change_type *s, tran_type *trans)
+{
+    if (s->is_trigger == AUDITED_TRIGGER){
+        logmsg(LOGMSG_WARN, "pre\n");
+        s->iq->sc = s;
+        logmsg(LOGMSG_WARN, "middle with: %p, %p, %p\n", s->iq, s->audit_sc, trans);
+        int rc = finalize_add_table(s->iq, s->audit_sc, trans);
+        logmsg(LOGMSG_WARN, "post with rc %d\n", rc);
+        if(rc) {return rc;}
+        // zTODO: Not currently doing a finalize add_sp b/c it doesn't do anything. Probably should though
+    }
+    return 0;
+}
+
 
 char *get_ddl_type_str(struct schema_change_type *s)
 {
@@ -640,6 +654,7 @@ int do_drop_view(struct ireq *iq, struct schema_change_type *s,
 
 static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
 {
+    logmsg(LOGMSG_WARN, "do_schema_change_tran_int called\n");
     struct ireq *iq = arg->iq;
     tran_type *trans = arg->trans;
     int rc = SC_OK;
@@ -865,7 +880,7 @@ int finalize_schema_change_thd(struct ireq *iq, tran_type *trans)
     else if (s->defaultsp)
         rc = finalize_default_sp(s);
     else if (s->is_trigger)
-        rc = finalize_trigger(s);
+        rc = finalize_trigger(s, trans);
     else if (s->is_sfunc)
         rc = finalize_lua_sfunc();
     else if (s->is_afunc)

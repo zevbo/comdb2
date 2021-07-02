@@ -16,9 +16,9 @@
 
 #ifndef INCLUDE_SC_QUEUES_H
 #define INCLUDE_SC_QUEUES_H
-// TODO: Check if this is okay
+// zTODO: Check if this is okay
 #include "bdb_api.h"
-// TODO: Is this okay?
+// zTODO: Is this okay?
 #include "sc_add_table.h"
 
 int do_alter_queues_int(struct schema_change_type *);
@@ -29,7 +29,6 @@ int perform_trigger_update_int(struct schema_change_type *sc);
 int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *tran); //, char *config); */
 int perform_trigger_update_replicant(const char *queue_name, scdone_t);
-int finalize_trigger(struct schema_change_type *);
 
 int reopen_qdb(const char *queue_name, uint32_t flags, tran_type *tran);
 

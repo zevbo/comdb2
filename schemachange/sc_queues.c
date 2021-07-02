@@ -488,8 +488,6 @@ int perform_trigger_update_int(struct schema_change_type *sc)
     if ((rc = check_option_queue_coherency(sc, db)))
         goto done;
 
-    /* zTODO: other checks: procedure with this name must not exist either */
-
     char **dests;
 
     if (sc->addonly || sc->alteronly) {
@@ -883,7 +881,6 @@ char *get_audit_schema(dbtable *db, int nCol){
 	}
 	char *audit_schema = malloc((len + 1) * sizeof(char));
 	strcpy(audit_schema, schema_start);
-	int len_on = strlen(schema_start);
 	for(int i = 0; i < nCol; i++){
 		char *entry = entries[i];
 		int name_index = 0;
@@ -903,35 +900,23 @@ char *get_audit_schema(dbtable *db, int nCol){
 		type[name_index] = '\0';
 		strcpy(name, entry + name_index);
 
-		strcpy(audit_schema + len_on, type);
-		len_on += strlen(type);
-		strcpy(audit_schema + len_on, "new_");
-		len_on += 4;
-		strcpy(audit_schema + len_on, name);
-		len_on += strlen(name);
-		strcpy(audit_schema + len_on, " ");
-		len_on += 1;
-		strcpy(audit_schema + len_on, line_postfix);
-		len_on += strlen(line_postfix);
+		strcat(audit_schema, type);
+		strcat(audit_schema, "new_");
+		strcat(audit_schema, name);
+		strcat(audit_schema, " ");
+		strcat(audit_schema, line_postfix);
 
-		strcpy(audit_schema + len_on, type);
-		len_on += strlen(type);
-		strcpy(audit_schema + len_on, "old_");
-		len_on += 4;
-		strcpy(audit_schema + len_on, name);
-		len_on += strlen(name);
-		strcpy(audit_schema + len_on, " ");
-		len_on += 1;
-		strcpy(audit_schema + len_on, line_postfix);
-		len_on += strlen(line_postfix);
+		strcat(audit_schema, type);
+		strcat(audit_schema , "old_");
+		strcat(audit_schema , name);
+		strcat(audit_schema , " ");
+		strcat(audit_schema , line_postfix);
 
 
 	}
-	strcpy(audit_schema + len_on, "}");
-	len_on += 1;
+	strcat(audit_schema, "}");
 	logmsg(LOGMSG_WARN, "audit schema: [%lu] %s\n", strlen(audit_schema), audit_schema);
 	/* Assert that len_on is correct */
-	assert(len_on == len);
 	return audit_schema;
 }
 struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol){
@@ -1004,13 +989,6 @@ struct schema_change_type *gen_audited_lua(char *table_name, char *spname){
     strcpy(sc->fname, "built-in audit");
 	return sc;
 }
-
-// TODO -- what should this do? maybe log_scdone should be here
-int finalize_trigger(struct schema_change_type *s)
-{
-    return 0;
-}
-
 static int close_qdb(struct dbtable *db, tran_type *tran)
 {
     int rc, bdberr = 0;
