@@ -806,6 +806,7 @@ char **get_entries(dbtable *db, int nCol){
 	int index_on = 0;
 	/* zTODO: malloc -> comdb2_malloc */
 	char **entries = malloc(nCol * sizeof(char *));
+    logmsg(LOGMSG_WARN, "old csc2: %s\n", old_csc2);
 	for(int entry_on = 0; old_csc2[entry_on] != '}'; entry_on++){
 		/* ws = whitespace */
 		int search_index = index_on;
@@ -814,6 +815,10 @@ char **get_entries(dbtable *db, int nCol){
 		int on_whitespace = 1;
 		/* ws_found starts as -1 because when we finish trimming
 		the string, it will increase ws_found by 1*/
+		while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
+		if (old_csc2[search_index] == '}'){
+			break;
+		}
 		for(int ws_found = 0; ws_found < 2; search_index++){
 			if (old_csc2[search_index] == '}'){
 				break;
@@ -823,9 +828,6 @@ char **get_entries(dbtable *db, int nCol){
 				ws_found++;
 			}
 			on_whitespace = now_on_ws;
-		}
-		if (old_csc2[search_index] == '}'){
-			break;
 		}
 		while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
 		/* deals with arrays such as "cstring text [100] */
@@ -841,6 +843,7 @@ char **get_entries(dbtable *db, int nCol){
 		entry[entry_len] = 0;
 		index_on = search_index;
 		entries[entry_on] = entry;
+        logmsg(LOGMSG_WARN, "just created entry %s\n", entry);
 
 		while(1){
 			int i;
@@ -866,7 +869,9 @@ char **get_entries(dbtable *db, int nCol){
 	return entries;
 } 
 char *get_audit_schema(dbtable *db, int nCol){
+    logmsg(LOGMSG_WARN, "getting entries\n");
 	char **entries = get_entries(db, nCol);
+    logmsg(LOGMSG_WARN, "entries received as %p\n", entries);
 	int len = 0;
 	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
 	len += strlen(schema_start);
@@ -874,11 +879,14 @@ char *get_audit_schema(dbtable *db, int nCol){
 	len += 1;
 	char *line_postfix = "null=yes ";
 	for(int i = 0; i < nCol; i++){
+        logmsg(LOGMSG_WARN, "getting a line size %p\n", entries[i]);
 		int line_size = strlen(entries[i]) + strlen(line_postfix);
+        logmsg(LOGMSG_WARN, "received a line size\n");
 		int new_line = line_size + 5; /* +1 is for the "new_ " */
 		int old_line = line_size + 5; /* +5 is for the "old_ " */
 		len += new_line + old_line;
 	}
+    logmsg(LOGMSG_WARN, "malloc audit_schema with len %d\n", len);
 	char *audit_schema = malloc((len + 1) * sizeof(char));
 	strcpy(audit_schema, schema_start);
 	for(int i = 0; i < nCol; i++){
@@ -905,12 +913,14 @@ char *get_audit_schema(dbtable *db, int nCol){
 		strcat(audit_schema, name);
 		strcat(audit_schema, " ");
 		strcat(audit_schema, line_postfix);
+        logmsg(LOGMSG_WARN, "current len [mid]: %lu\n", strlen(audit_schema));
 
 		strcat(audit_schema, type);
 		strcat(audit_schema , "old_");
 		strcat(audit_schema , name);
 		strcat(audit_schema , " ");
 		strcat(audit_schema , line_postfix);
+        logmsg(LOGMSG_WARN, "current len: %lu\n", strlen(audit_schema));
 
 
 	}
@@ -931,7 +941,9 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol){
 	sc->addonly = 1;
 
 	struct dbtable *db = get_dbtable_by_name(name);
+    logmsg(LOGMSG_WARN, "getting audit schema\n");
 	sc->newcsc2 = get_audit_schema(db, nCol);
+    logmsg(LOGMSG_WARN, "audit schema received\n");
 
 	// Probably should add a dollar sign
 	char *prefix = "$audit_";
@@ -967,12 +979,12 @@ struct schema_change_type *gen_audited_lua(char *table_name, char *spname){
     "    chg.logtime = db:now()\n"
     "    return audit:insert(chg)\n"
     "end\n";
-    char *code = malloc((strlen(code_start) + strlen(code_end) + strlen(spname) + 1) * sizeof(char));
-    strcat(code, code_start);
+    char *code = malloc((strlen(code_start) + strlen(code_end) + strlen(table_name) + 1) * sizeof(char));
+    strcpy(code, code_start);
     strcat(code, table_name);
     strcat(code, code_end);
     /*
-	Got to make this work at some point
+	zTODO: Got to make this work at some point
     if (comdb2TokenToStr(nm, spname, sizeof(spname))) {
         setError(pParse, SQLITE_MISUSE, "Procedure name is too long");
         logmsg(LOGMSG_WARN, "Failure on comdb2TokenToStr\n");

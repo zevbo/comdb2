@@ -1030,7 +1030,6 @@ static int apply_changes(struct ireq *iq, blocksql_tran_t *tran, void *iq_tran,
                                      blob_buffer_t blobs[MAXBLOBS], int,
                                      struct block_err *, int *))
 {
-    logmsg(LOGMSG_WARN, "apply_changes starting\n");
     int rc = 0;
     int out_rc = 0;
     int bdberr = 0;

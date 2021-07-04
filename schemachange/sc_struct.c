@@ -82,7 +82,6 @@ void free_schema_change_type(struct schema_change_type *s)
     if (!s)
         return;
     if (s->newcsc2) {
-        logmsg(LOGMSG_WARN, "HEY! We are freeing newcsc2 in free_schema_change_type. PAY ATTENTION\n");
         free(s->newcsc2);
         s->newcsc2 = NULL;
     }

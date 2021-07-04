@@ -41,6 +41,7 @@
 #include "sc_callbacks.h"
 #include "views.h"
 #include "translistener.h"
+#include <math.h>
 #include <debug_switches.h>
 
 void comdb2_cheapstack_sym(FILE *f, char *fmt, ...);
@@ -556,17 +557,18 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
 {
     if (sc->is_trigger == AUDITED_TRIGGER){
         char *table_name = get_table_name(sc->newcsc2);
-        logmsg(LOGMSG_WARN, "Table name: %s\n", table_name);
+        logmsg(LOGMSG_WARN, "Table name: %s, %d\n", table_name, sc->nCol);
         struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma(table_name, sc->nCol);
+        logmsg(LOGMSG_WARN, "Got audit_sc\n");
         audit_sc->iq = iq;
         iq->sc = audit_sc;
         sc->audit_sc = audit_sc;
+        // zTODO: Maybe make it tell the user what table the data is being stored in? Difficult because we are currently on master
         int og_len = strlen(audit_sc->tablename);
         for(int i = 2; get_dbtable_by_name(audit_sc->tablename); i++){
-            char *tn = audit_sc->tablename;
             char *postfix_str = malloc((ceil(log(i)) + 1) * sizeof(char));
-            sprintf(postfix_str, "%d", i);
-            strcpy(audit_sc->tablename, postfix_str);
+            sprintf(postfix_str, "$%d", i);
+            strcpy(audit_sc->tablename + og_len, postfix_str);
         }
         int rc = do_ddl(do_add_table, finalize_add_table, iq, audit_sc, trans, add);
         if (rc != SC_COMMIT_PENDING){return rc;}

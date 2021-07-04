@@ -1,0 +1,8 @@
+[CREATE TABLE t(i int, s char(65))] rc 0
+[CREATE LUA TRIGGER shoutout_to_monse ON (TABLE t FOR INSERT) AUDITED] rc 0
+(rows inserted=1)
+[INSERT INTO t values(5, "abc")] rc 0
+[SELECT * FROM "$audit_t"] rc 0
+[DROP TABLE t] rc 0
+[DROP TABLE "$audit_t"] rc 0
+[DROP LUA TRIGGER shoutout_to_monse] rc 0

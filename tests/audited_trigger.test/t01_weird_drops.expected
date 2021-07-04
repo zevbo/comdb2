@@ -1,0 +1,17 @@
+[CREATE TABLE t1(a int, b int)] rc 0
+[CREATE LUA TRIGGER t1_audit ON (table t1 FOR INSERT AND UPDATE AND DELETE) AUDITED] rc 0
+[DROP LUA TRIGGER t1_audit] rc 0
+[CREATE LUA TRIGGER t1_audit ON (table t1 FOR INSERT AND UPDATE AND DELETE) AUDITED] rc 0
+[DROP TABLE '$audit_t1'] rc 0
+[CREATE LUA TRIGGER shoutout_to_alexw ON (table t1 FOR INSERT AND UPDATE AND DELETE) AUDITED] rc 0
+(tablename='sqlite_stat1')
+(tablename='sqlite_stat4')
+(tablename='t1')
+(tablename='$audit_t1$2')
+(tablename='$audit_t1')
+[SELECT * FROM comdb2_tables] rc 0
+[DROP LUA TRIGGER t1_audit] rc 0
+[DROP LUA TRIGGER shoutout_to_alexw] rc 0
+[DROP TABLE '$audit_t1'] rc 0
+[DROP TABLE '$audit_t1$2'] rc 0
+[DROP TABLE t1] rc 0

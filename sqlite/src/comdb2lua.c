@@ -247,7 +247,6 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token 
 	d->dest = strdup(method);
 	listc_abl(&sc->dests, d);
 	sc->newcsc2 = strbuf_disown(s);
-	logmsg(LOGMSG_WARN, "new csc2: %s\n", sc->newcsc2);
 	strbuf_free(s);
 	Vdbe *v = sqlite3GetVdbe(parse);
 
