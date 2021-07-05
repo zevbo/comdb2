@@ -12,7 +12,7 @@ DROP TABLE '$audit_t1'
 
 CREATE LUA TRIGGER shoutout_to_alexw ON (table t1 FOR INSERT AND UPDATE AND DELETE) AUDITED
 
-SELECT * FROM comdb2_tables
+SELECT * FROM comdb2_tables ORDER BY tablename
 
 DROP LUA TRIGGER t1_audit
 DROP LUA TRIGGER shoutout_to_alexw 

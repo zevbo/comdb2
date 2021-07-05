@@ -9,7 +9,7 @@ INSERT INTO t VALUES(5)
 INSERT INTO t VALUES(10)
 DELETE FROM t WHERE num=10
 
-SELECT sleep(0.5)
+SELECT sleep(1)
 
 SELECT "------table filling------"
 SELECT * from "$audit_t" ORDER BY new_num

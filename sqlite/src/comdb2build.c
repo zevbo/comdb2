@@ -516,9 +516,7 @@ int comdb2SqlDryrunSchemaChange(OpFunc *f)
 
 int performOsqlScheamchangeLogic(void *arg, int usedb){
     struct sql_thread *thd = pthread_getspecific(query_info_key);
-    logmsg(LOGMSG_WARN, "Got sql_thread: %p\n", thd);
     struct schema_change_type *s = (struct schema_change_type*)arg;
-    logmsg(LOGMSG_WARN, "Got schema change: %p. With trigger %d, tablename %s\n", s, s->is_trigger, s->tablename);
     return osql_schemachange_logic(s, thd, usedb);
 }
 
@@ -551,7 +549,6 @@ static int comdb2SqlSchemaChange(OpFunc *f)
 /* I'm not sure why comdb2SchemaChange_tran only allows one sc */
 /* TODO: Decrease code replication with comdb2SchemaChange_tran */
 int comdb2SqlSchemaChange_bigTran(OpFunc *f){
-    logmsg(LOGMSG_WARN, "made it to big tran with arg %p\n", f->arg);
     struct sqlclntstate *clnt = get_sql_clnt();
     osqlstate_t *osql = &clnt->osql;
     int rc = 0;
@@ -560,9 +557,7 @@ int comdb2SqlSchemaChange_bigTran(OpFunc *f){
     osql_sock_start(clnt, OSQL_SOCK_REQ ,0);
     struct sc_linked_list *sc_list = (struct sc_linked_list *)f->arg;
     while(sc_list){
-        logmsg(LOGMSG_WARN, "looping in list: %p\n", sc_list->sc);
         performOsqlScheamchangeLogic(sc_list->sc, 0);
-        logmsg(LOGMSG_WARN, "performed osql logic\n");
         if (clnt->dbtran.mode != TRANLEVEL_SOSQL) {
             rc = osql_shadtbl_process(clnt, &sentops, &bdberr, 0);
             if (rc) {
@@ -575,7 +570,6 @@ int comdb2SqlSchemaChange_bigTran(OpFunc *f){
                 return ERR_INTERNAL;
             }
         }
-        logmsg(LOGMSG_WARN, "setting it to next\n");
         sc_list = sc_list->next;
     }
     rc = osql_sock_commit(clnt, OSQL_SOCK_REQ);
@@ -1096,7 +1090,6 @@ out:
 
 void comdb2CreateProcedure(Parse* pParse, Token* nm, Token* ver, Token* proc)
 {
-    logmsg(LOGMSG_WARN, "Creating procedure\n");
     if (comdb2IsPrepareOnly(pParse))
         return;
 
@@ -1109,10 +1102,7 @@ void comdb2CreateProcedure(Parse* pParse, Token* nm, Token* ver, Token* proc)
     }
 #endif
 
-    if (comdb2AuthenticateUserOp(pParse)){
-        logmsg(LOGMSG_WARN, "Failure on comdb2AuthenticateUserOp\n");
-        return;
-    }
+    if (comdb2AuthenticateUserOp(pParse)) return;
 
     char spname[MAX_SPNAME];
     char sp_version[MAX_SPVERSION_LEN];
@@ -1121,7 +1111,6 @@ void comdb2CreateProcedure(Parse* pParse, Token* nm, Token* ver, Token* proc)
 
     if (comdb2TokenToStr(nm, spname, sizeof(spname))) {
         setError(pParse, SQLITE_MISUSE, "Procedure name is too long");
-        logmsg(LOGMSG_WARN, "Failure on comdb2TokenToStr\n");
         return;
     }
 
@@ -1132,13 +1121,11 @@ void comdb2CreateProcedure(Parse* pParse, Token* nm, Token* ver, Token* proc)
     if (ver) {
         if (comdb2TokenToStr(ver, sp_version, sizeof(sp_version))) {
             setError(pParse, SQLITE_MISUSE, "Procedure version is too long");
-            logmsg(LOGMSG_WARN, "Cleanup\n");
             goto cleanup;
         }
         strcpy(sc->fname, sp_version);
     }
     copyNoSqlToken(v, pParse, &sc->newcsc2, proc);
-    logmsg(LOGMSG_WARN, "Procedure csc2: %s\n", sc->newcsc2);
     const char* colname[] = {"version"};
     const int coltype = OPFUNC_STRING_TYPE;
     OpFuncSetup stp = {1, colname, &coltype, 256};

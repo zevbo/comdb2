@@ -557,9 +557,7 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
 {
     if (sc->is_trigger == AUDITED_TRIGGER){
         char *table_name = get_table_name(sc->newcsc2);
-        logmsg(LOGMSG_WARN, "Table name: %s, %d\n", table_name, sc->nCol);
         struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma(table_name, sc->nCol);
-        logmsg(LOGMSG_WARN, "Got audit_sc\n");
         audit_sc->iq = iq;
         iq->sc = audit_sc;
         sc->audit_sc = audit_sc;
@@ -591,11 +589,8 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
 int finalize_trigger(struct schema_change_type *s, tran_type *trans)
 {
     if (s->is_trigger == AUDITED_TRIGGER){
-        logmsg(LOGMSG_WARN, "pre\n");
         s->iq->sc = s;
-        logmsg(LOGMSG_WARN, "middle with: %p, %p, %p\n", s->iq, s->audit_sc, trans);
         int rc = finalize_add_table(s->iq, s->audit_sc, trans);
-        logmsg(LOGMSG_WARN, "post with rc %d\n", rc);
         if(rc) {return rc;}
         // zTODO: Not currently doing a finalize add_sp b/c it doesn't do anything. Probably should though
     }
@@ -653,7 +648,6 @@ int do_drop_view(struct ireq *iq, struct schema_change_type *s,
 
 static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
 {
-    logmsg(LOGMSG_WARN, "do_schema_change_tran_int called\n");
     struct ireq *iq = arg->iq;
     tran_type *trans = arg->trans;
     int rc = SC_OK;
