@@ -143,10 +143,9 @@ Cdb2TrigTables *comdb2AddTriggerTable(Parse *parse, Cdb2TrigTables *tables,
 }
 
 // dynamic -> consumer
-void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token *proc,
+void comdb2CreateTrigger(Parse *parse, int dynamic, int is_trigger, int seq, Token *proc,
                          Cdb2TrigTables *tbl)
 {
-	int nCol = tbl->table->nCol;
     if (comdb2IsPrepareOnly(parse))
         return;
 #ifndef SQLITE_OMIT_AUTHORIZATION
@@ -163,6 +162,11 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token 
     if (comdb2AuthenticateUserOp(parse))
         return;
 
+	int nCol = 0;
+	if (tbl){
+		nCol = tbl->table->nCol;
+	}
+
     char spname[MAX_SPNAME];
 
     if (comdb2TokenToStr(proc, spname, sizeof(spname))) {
@@ -174,22 +178,6 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, Token *type, int seq, Token 
 	if (getqueuebyname(qname)) {
 		sqlite3ErrorMsg(parse, "trigger already exists: %s", spname);
 		return;
-	}
-
-	int is_trigger = NORMAL_TRIGGER;
-	if (type->z){
-		int len = strlen(type->z);
-		char *lower_case_type = malloc(len + 1);
-		for(int i = 0; i < len; i++){
-			lower_case_type[i] = tolower(type->z[i]);
-		}
-		lower_case_type[len] = 0;
-		if (strcmp(lower_case_type, "audited") == 0){
-			is_trigger = AUDITED_TRIGGER;
-		} else {
-			sqlite3ErrorMsg(parse, "bad trigger type: %s", type->z);
-			return;
-		}
 	}
 
 	// zTODO: we should still do this if it is not audited
