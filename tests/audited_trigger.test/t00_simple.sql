@@ -1,6 +1,6 @@
 CREATE TABLE t(num int)$$
 
-CREATE LUA TRIGGER t_audit ON (TABLE t FOR INSERT) AUDITED
+CREATE LUA AUDITED TRIGGER t_audit ON (TABLE t FOR INSERT)
 
 SELECT "------table and procedure creation------"
 SELECT * FROM comdb2_tables ORDER BY tablename

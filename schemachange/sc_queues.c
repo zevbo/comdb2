@@ -20,6 +20,7 @@
 #include "sc_schema.h"
 #include "logmsg.h"
 #include "sc_callbacks.h"
+#include <math.h>
 
 #define BDB_TRAN_MAYBE_ABORT_OR_FATAL(a,b,c) do {                             \
     (c) = 0;                                                                  \
@@ -790,133 +791,56 @@ int isSchemaWhitespace(char c){
 	return c == ' ' || c == '\n' || c == ']';
 }
 
-// zTODO: use strcat when necessary
-char **get_entries(dbtable *db, int nCol){
-	char *old_csc2 = NULL;
-	if (get_csc2_file(db->tablename, -1 /*highest csc2_version*/, &old_csc2,
-                      NULL /*csc2len*/)) {
-        logmsg(LOGMSG_ERROR, "could not get schema (audited trigger)\n");
-        return NULL;
-    }
-	// zTODO: this assumes that the schema is defined first
-	while(*old_csc2 != '{'){
-		old_csc2++;
-	}
-	old_csc2++;
-	int index_on = 0;
-	/* zTODO: malloc -> comdb2_malloc */
-	char **entries = malloc(nCol * sizeof(char *));
-	for(int entry_on = 0; old_csc2[entry_on] != '}'; entry_on++){
-		/* ws = whitespace */
-		int search_index = index_on;
-		/* on_whitespace starts as true so that we can effectively 
-		trim the start of the string */
-		int on_whitespace = 1;
-		/* ws_found starts as -1 because when we finish trimming
-		the string, it will increase ws_found by 1*/
-		while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
-		if (old_csc2[search_index] == '}'){
-			break;
-		}
-		for(int ws_found = 0; ws_found < 2; search_index++){
-			if (old_csc2[search_index] == '}'){
-				break;
-			}
-			int now_on_ws = isSchemaWhitespace(old_csc2[search_index]);
-			if (!on_whitespace && now_on_ws) {
-				ws_found++;
-			}
-			on_whitespace = now_on_ws;
-		}
-		while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
-		/* deals with arrays such as "cstring text [100] */
-		if (old_csc2[search_index] == '[') {
-			while(old_csc2[search_index] != ']'){search_index++;}
-			while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
-		}
-		int entry_len = search_index - index_on;
-		char *entry = malloc((entry_len + 1) * sizeof(char));
-		for(int i = 0; i < entry_len; i++){
-			entry[i] = old_csc2[index_on + i];
-		}
-		entry[entry_len] = 0;
-		index_on = search_index;
-		entries[entry_on] = entry;
-
-		while(1){
-			int i;
-			for(i = index_on; 
-				!isSchemaWhitespace(old_csc2[i]) && old_csc2[i] != '='; i++){
-				// Skip to next word (plausibly an equals)
-			}
-			while(isSchemaWhitespace(old_csc2[i])){i++;}
-			if(old_csc2[i] == '='){
-				i++;
-				// Skip to next word
-				while(isSchemaWhitespace(old_csc2[i])){i++;}
-				// Skip to next skip word
-				while(old_csc2[i] != '}' && !isSchemaWhitespace(old_csc2[i])){i++;}
-				// Skip to next line or attr
-				while(isSchemaWhitespace(old_csc2[i])){i++;}
-				index_on = i;
-			} else {
-				break;
-			}
-		} 
-	}
-	return entries;
-} 
 char *get_audit_schema(dbtable *db, int nCol){
-	char **entries = get_entries(db, nCol);
 	int len = 0;
 	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
-	len += strlen(schema_start);
 	/* "}" */
-	len += 1;
 	char *line_postfix = "null=yes ";
-	for(int i = 0; i < nCol; i++){
-		int line_size = strlen(entries[i]) + strlen(line_postfix);
-		int new_line = line_size + 5; /* +1 is for the "new_ " */
+	for(int i = 0; i < db->schema->nmembers; i++){
+		struct field *entry = db->schema->member + i;
+		int line_size = strlen(csc2type(entry)) + 1 + strlen(entry->name);
+        // zTODO: their should be a list of types that can do this
+        if (entry->type == SERVER_BCSTR || entry->type == SERVER_BYTEARRAY){
+            int len_size = floor(log(entry->len)) + 1;
+            line_size += 2 + len_size;
+        }
+		int new_line = line_size + 5; /* +5 is for the "new_ " */
 		int old_line = line_size + 5; /* +5 is for the "old_ " */
 		len += new_line + old_line;
 	}
 	char *audit_schema = malloc((len + 1) * sizeof(char));
 	strcpy(audit_schema, schema_start);
-	for(int i = 0; i < nCol; i++){
-		char *entry = entries[i];
-		int name_index = 0;
-		int on_whitespace = 1;
-		for(int ws_found = -1; ws_found < 1; name_index++){
-			int now_on_ws = isSchemaWhitespace(entry[name_index]);
-			if (on_whitespace && !now_on_ws) {
-				ws_found++;
-			}
-			on_whitespace = now_on_ws;
-		}
-		/* Name index decremneted so that it doesn't cut off first char of name */
-		name_index--;
-		char *type = malloc((name_index + 1) * sizeof(char));
-		char *name = malloc((strlen(entry) - name_index + 1) * sizeof(char));
-		memcpy(type, entry, name_index);
-		type[name_index] = '\0';
-		strcpy(name, entry + name_index);
+	for(int i = 0; i < db->schema->nmembers; i++){
+		struct field *entry = db->schema->member + i;
+
+		char *type = csc2type(entry);
+		char *name = entry->name;
+        
+        if (entry->type == SERVER_BCSTR || entry->type == SERVER_BYTEARRAY){
+            int len_size = floor(log(entry->len)) + 1;
+            char *len = malloc((len_size + 3) * sizeof(char));
+            sprintf(len, "[%d]", entry->len);
+            name = malloc((strlen(entry->name) + strlen(len) + 1));
+            strcpy(name, entry->name);
+            strcat(name, len);
+        }
 
 		strcat(audit_schema, type);
-		strcat(audit_schema, "new_");
+		strcat(audit_schema, " new_");
 		strcat(audit_schema, name);
 		strcat(audit_schema, " ");
 		strcat(audit_schema, line_postfix);
 
 		strcat(audit_schema, type);
-		strcat(audit_schema , "old_");
+		strcat(audit_schema , " old_");
 		strcat(audit_schema , name);
 		strcat(audit_schema , " ");
 		strcat(audit_schema , line_postfix);
-
-
 	}
+    
 	strcat(audit_schema, "}");
 	logmsg(LOGMSG_WARN, "audit schema: [%lu] %s\n", strlen(audit_schema), audit_schema);
+    assert(strlen(audit_schema) == len);
 	/* Assert that len_on is correct */
 	return audit_schema;
 }

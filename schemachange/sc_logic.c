@@ -551,26 +551,25 @@ char *get_table_name(char *newcsc2){
     return table_name;
 }
 
-// zTODO: Is this okay?
+// zTODO: Is it okay to have these trigger functions in this file?
 int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans)
 {
     if (sc->is_trigger == AUDITED_TRIGGER){
         char *table_name = get_table_name(sc->newcsc2);
-        struct schema_change_type *audit_sc = comdb2CreateAuditTriggerScehma(table_name, sc->nCol);
-        audit_sc->iq = iq;
-        iq->sc = audit_sc;
-        sc->audit_sc = audit_sc;
+        sc->audit_sc = comdb2CreateAuditTriggerScehma(table_name, sc->nCol);
+        sc->audit_sc->iq = iq;
+        iq->sc = sc->audit_sc;
         // zTODO: Maybe make it tell the user what table the data is being stored in? Difficult because we are currently on master
-        int og_len = strlen(audit_sc->tablename);
-        for(int i = 2; get_dbtable_by_name(audit_sc->tablename); i++){
+        int postfix_start = strlen(sc->audit_sc->tablename);
+        for(int i = 2; get_dbtable_by_name(sc->audit_sc->tablename); i++){
             char *postfix_str = malloc((ceil(log(i)) + 1) * sizeof(char));
             sprintf(postfix_str, "$%d", i);
-            strcpy(audit_sc->tablename + og_len, postfix_str);
+            strcpy(sc->audit_sc->tablename + postfix_start, postfix_str);
         }
-        int rc = do_ddl(do_add_table, finalize_add_table, iq, audit_sc, trans, add);
+        int rc = do_ddl(do_add_table, finalize_add_table, iq, sc->audit_sc, trans, add);
         if (rc != SC_COMMIT_PENDING){return rc;}
-        struct schema_change_type *proc_sc = gen_audited_lua(audit_sc->tablename, sc->tablename + 3);
+        struct schema_change_type *proc_sc = gen_audited_lua(sc->audit_sc->tablename, sc->tablename + 3);
         iq->sc = proc_sc;
         rc = do_add_sp(proc_sc, iq);
         if (rc != SC_COMMIT_PENDING){return rc;}
@@ -592,7 +591,7 @@ int finalize_trigger(struct schema_change_type *s, tran_type *trans)
         s->iq->sc = s;
         int rc = finalize_add_table(s->iq, s->audit_sc, trans);
         if(rc) {return rc;}
-        // zTODO: Not currently doing a finalize add_sp b/c it doesn't do anything. Probably should though
+        // zTODO: Not currently doing a finalize add_sp b/c it doesn't do anything. Probably should though in case it is changed
     }
     return 0;
 }

@@ -1,6 +1,6 @@
 CREATE TABLE ghost(i char(6))$$
 
-CREATE LUA TRIGGER hi_helena ON (TABLE ghost FOR INSERT) AUDITED
+CREATE LUA AUDITED TRIGGER hi_helena ON (TABLE ghost FOR INSERT) 
 
 DROP TABLE "$audit_ghost"
 
