@@ -537,7 +537,6 @@ int do_alter_stripes(struct schema_change_type *s)
     s->finalize = 1;
     return rc;
 }
-
 static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset);
 
 char *get_table_name(char *newcsc2){
