@@ -795,10 +795,12 @@ char *get_audit_schema(dbtable *db, int nCol){
 	int len = 0;
 	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
 	/* "}" */
+    len += strlen(schema_start);
+    len += 1;
 	char *line_postfix = "null=yes ";
 	for(int i = 0; i < db->schema->nmembers; i++){
 		struct field *entry = db->schema->member + i;
-		int line_size = strlen(csc2type(entry)) + 1 + strlen(entry->name);
+		int line_size = strlen(csc2type(entry)) + 1 + strlen(entry->name) + strlen(line_postfix);
         // zTODO: their should be a list of types that can do this
         if (entry->type == SERVER_BCSTR || entry->type == SERVER_BYTEARRAY){
             int len_size = floor(log(entry->len)) + 1;
@@ -812,9 +814,10 @@ char *get_audit_schema(dbtable *db, int nCol){
 	strcpy(audit_schema, schema_start);
 	for(int i = 0; i < db->schema->nmembers; i++){
 		struct field *entry = db->schema->member + i;
-
+        
 		char *type = csc2type(entry);
-		char *name = 0;
+		char *name = NULL;
+        
         
         if (entry->type == SERVER_BCSTR || entry->type == SERVER_BYTEARRAY){
             int len_size = floor(log(entry->len)) + 1;
@@ -840,7 +843,8 @@ char *get_audit_schema(dbtable *db, int nCol){
 		strcat(audit_schema , " ");
 		strcat(audit_schema , line_postfix);
 
-        free(name);
+        free(name); 
+
 	}
     
 	strcat(audit_schema, "}");
@@ -994,10 +998,10 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol){
 	strcat(sc->tablename, name);
     // zTODO: I think that get_dbtable_by_name ultimately frees name. If it doesn't we have a problem: some undefined behavior somewhere
     // To see odd behavior, simply look at the contents of name after get_audit_schema is called
+    // It should be something like "es }" which is the ending to the audit schema in get_audit_schema
 	struct dbtable *db = get_dbtable_by_name(name);
 	sc->newcsc2 = get_audit_schema(db, nCol);
 
-	// Probably should add a dollar sign
     if (db->instant_schema_change) sc->instant_sc = 1;
 
 	// What is ODH? This is just copied from timepart
