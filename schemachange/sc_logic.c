@@ -559,10 +559,16 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         sc->audit_sc = comdb2CreateAuditTriggerScehma(table_name, sc->nCol);
         sc->audit_sc->iq = iq;
         iq->sc = sc->audit_sc;
+        // zTODO: Maybe make it tell the user what table the data is being stored in? Difficult because we are currently on master
+        int postfix_start = strlen(sc->audit_sc->tablename);
+        for(int i = 2; get_dbtable_by_name(sc->audit_sc->tablename); i++){
+            char *postfix_str = malloc((ceil(log(i)) + 1) * sizeof(char));
+            sprintf(postfix_str, "$%d", i);
+            strcpy(sc->audit_sc->tablename + postfix_start, postfix_str);
+            free(postfix_str);
+        }
         // zTODO: make it automatic with deletes
-        /*
         int rc = bdb_set_audited_sp_tran(trans, table_name, sc->audit_sc->tablename);
-        logmsg(LOGMSG_WARN, "finished bdb_set_audited_sp_tran with rc %d\n", rc);
         if (rc) {return rc;}
         char **audits;
         int num_audits;
@@ -571,21 +577,7 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         for(int i = 0; i < num_audits; i++){
             logmsg(LOGMSG_WARN, "Audit i: %s\n", audits[i]);
         }
-        */
-        // zTODO: Maybe make it tell the user what table the data is being stored in? Difficult because we are currently on master
-        logmsg(LOGMSG_WARN, "got audit_sc\n");
-        int postfix_start = strlen(sc->audit_sc->tablename);
-        logmsg(LOGMSG_WARN, "checked tablename\n");
-        for(int i = 2; get_dbtable_by_name(sc->audit_sc->tablename); i++){
-            logmsg(LOGMSG_WARN, "trying next tablename\n");
-            char *postfix_str = malloc((ceil(log(i)) + 1) * sizeof(char));
-            sprintf(postfix_str, "$%d", i);
-            strcpy(sc->audit_sc->tablename + postfix_start, postfix_str);
-            free(postfix_str);
-        }
-        logmsg(LOGMSG_WARN, "Going to do add table\n");
-        int rc = do_ddl(do_add_table, finalize_add_table, iq, sc->audit_sc, trans, add);
-        logmsg(LOGMSG_WARN, "did add table\n");
+        rc = do_ddl(do_add_table, finalize_add_table, iq, sc->audit_sc, trans, add);
         if (rc != SC_COMMIT_PENDING){return rc;}
         struct schema_change_type *proc_sc = gen_audited_lua(sc->audit_sc->tablename, sc->tablename + 3);
         iq->sc = proc_sc;
