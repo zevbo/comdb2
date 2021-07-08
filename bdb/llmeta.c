@@ -9420,6 +9420,8 @@ struct audit_table_key {
     char tablename[MAXTABLELEN];
     llmetakey_t llmetakey;
 };
+// zTODO: assert that this is smaller than the max key size
+
 struct audit_table_key create_audit_table_key(char *tablename){
     struct audit_table_key k;
     memset(k.tablename, 0, sizeof(k.tablename));
@@ -9436,25 +9438,24 @@ int bdb_get_audited_sp_tran(tran_type *tran, char *tablename, char ***audits, in
 }
 
 int bdb_set_audited_sp_tran(tran_type *tran, char *sub_table, char *audit_table){
-    logmsg(LOGMSG_WARN, "starting bdb_set_audited_sp_tran\n");
-    struct audit_table_key k = create_audit_table_key(sub_table);
-    logmsg(LOGMSG_WARN, "audit_table_key created\n");
+    // zTODO: next 3 lines are repeated in next funciton. Fix
+    struct audit_table_key get_key = create_audit_table_key(sub_table);
+    char k[LLMETA_IXLEN] = {0};
+    memcpy(k, &get_key, sizeof(get_key));
     int rc, bdberr;
     rc = kv_put(tran, &k, audit_table, strlen(audit_table) + 1, &bdberr);
-    logmsg(LOGMSG_WARN, "kv_put\n");
     return rc;
 }
 
 int bdb_delete_audited_sp_tran(tran_type *tran, char *sub_table){
-    struct audit_table_key k = create_audit_table_key(sub_table);
+    struct audit_table_key get_key = create_audit_table_key(sub_table);
+    char k[LLMETA_IXLEN] = {0};
+    memcpy(k, &get_key, sizeof(get_key));
     int bdberr;
-    logmsg(LOGMSG_WARN, "doing the kv_del\n");
     char **audits;
     int num_audits;
     bdb_get_audited_sp_tran(tran, sub_table, &audits, &num_audits);
-    logmsg(LOGMSG_WARN, "num audits: %d\n", num_audits);
     int rc = kv_del(tran, &k, &bdberr);
-    logmsg(LOGMSG_WARN, "bdberr: %d, %d\n", bdberr, bdberr == BDBERR_DEL_DTA);
     return rc;
 }
 

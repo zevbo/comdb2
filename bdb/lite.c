@@ -698,7 +698,6 @@ static int bdb_lite_exact_del_int(bdb_state_type *bdb_state, tran_type *tran, vo
             break;
         case DB_NOTFOUND:
             *bdberr = BDBERR_DEL_DTA;
-            logmsg(LOGMSG_WARN, "DB_NOTFOUND\n");
             break;
         default:
             *bdberr = BDBERR_MISC;
@@ -706,7 +705,6 @@ static int bdb_lite_exact_del_int(bdb_state_type *bdb_state, tran_type *tran, vo
         }
         return -1;
     }
-    logmsg(LOGMSG_WARN, "It's 0\n");
 
     return 0;
 }
