@@ -9445,6 +9445,41 @@ int bdb_set_audited_sp_tran(tran_type *tran, char *sub_table, char *audit_table)
     return rc;
 }
 
+int bdb_delete_audited_sp_tran(tran_type *tran, char *sub_table){
+    struct audit_table_key k = create_audit_table_key(sub_table);
+    int bdberr;
+    logmsg(LOGMSG_WARN, "doing the kv_del\n");
+    char **audits;
+    int num_audits;
+    bdb_get_audited_sp_tran(tran, sub_table, &audits, &num_audits);
+    logmsg(LOGMSG_WARN, "num audits: %d\n", num_audits);
+    int rc = kv_del(tran, &k, &bdberr);
+    logmsg(LOGMSG_WARN, "bdberr: %d, %d\n", bdberr, bdberr == BDBERR_DEL_DTA);
+    return rc;
+}
+
+// zTODO: Currently this might call create_audit_table_key a bunch. 
+//   I don't think that's a problem time wise? But it could be, should be checked
+// zTODO: I feel like this isn't atomic, just because I might return at an rc in one
+//   spot and not complete but have already started
+int bdb_delete_single_audited_sp_tran(tran_type *tran, char *sub_table, char *audit_table){
+    char **audits;
+    int num_audits;
+    int rc = bdb_get_audited_sp_tran(tran, sub_table, &audits, &num_audits);
+    if (rc) {return rc;}
+    rc = bdb_delete_audited_sp_tran(tran, sub_table);
+    if (rc) {return rc;}
+    // zTODO: might want to create a function so that other people can do this too
+    for(int i = 0; i < num_audits; i++){
+        char *audit = audits[i];
+        if (strcmp(audit, audit_table) != 0){
+            int rc = bdb_set_audited_sp_tran(tran, sub_table, audit);
+            if (rc) {return rc;}
+        }
+    }
+    return 0;
+}
+
 int bdb_get_default_versioned_sp(char *name, char **version)
 {
     return bdb_get_default_versioned_sp_tran(NULL, name, version);

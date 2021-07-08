@@ -551,6 +551,7 @@ char *get_table_name(char *newcsc2){
 }
 
 // zTODO: Is it okay to have these trigger functions in this file?
+// zTODO: break this up into multiple functions? maybe...
 int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans)
 {

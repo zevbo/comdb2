@@ -58,6 +58,14 @@ int do_drop_table(struct ireq *iq, struct schema_change_type *s,
         return -1;
     }
 
+    bdb_delete_audited_sp_tran(tran, s->tablename);
+    /*
+    if (rc) {
+        logmsg(LOGMSG_WARN, "bdb_delete_audited_sp_tran failed with rc %d\n", rc);
+        return rc;
+    }
+    */
+
     return SC_OK;
 }
 
