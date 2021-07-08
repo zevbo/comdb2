@@ -9452,11 +9452,7 @@ int bdb_delete_audited_sp_tran(tran_type *tran, char *sub_table){
     char k[LLMETA_IXLEN] = {0};
     memcpy(k, &get_key, sizeof(get_key));
     int bdberr;
-    char **audits;
-    int num_audits;
-    bdb_get_audited_sp_tran(tran, sub_table, &audits, &num_audits);
-    int rc = kv_del(tran, &k, &bdberr);
-    return rc;
+    return kv_del(tran, &k, &bdberr);
 }
 
 // zTODO: Currently this might call create_audit_table_key a bunch. 
