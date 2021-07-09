@@ -557,7 +557,7 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
 {
     if (sc->is_trigger == AUDITED_TRIGGER){
         char *table_name = get_table_name(sc->newcsc2);
-        sc->audit_sc = comdb2CreateAuditTriggerScehma(table_name, sc->nCol);
+        sc->audit_sc = comdb2CreateAuditTriggerScehma(table_name);
         sc->audit_sc->iq = iq;
         iq->sc = sc->audit_sc;
         // zTODO: Maybe make it tell the user what table the data is being stored in? Difficult because we are currently on master
@@ -717,7 +717,7 @@ static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
         rc = do_ddl(do_add_table, finalize_add_table, iq, s, trans, add);
     }
     else if (s->rename)
-        // zTODO: apply to trigger
+        // zTODO: apply to trigger?
         if (s->rename == SC_RENAME_LEGACY)
             rc = do_ddl(do_rename_table, finalize_rename_table, iq, s, trans,
                         rename_table);
@@ -727,6 +727,7 @@ static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
     else if (s->fulluprecs || s->partialuprecs)
         rc = do_upgrade_table(s);
     else if (s->type == DBTYPE_TAGGED_TABLE)
+        // zTODO: apply to trigger?
         rc = do_ddl(do_alter_table, finalize_alter_table, iq, s, trans, alter);
     else if (s->type == DBTYPE_QUEUE)
         rc = do_alter_queues(s);

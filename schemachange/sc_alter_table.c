@@ -26,6 +26,7 @@
 #include "sc_csc2.h"
 #include "sc_util.h"
 #include "sc_logic.h"
+#include "sc_queues.h"
 #include "sc_records.h"
 #include "analyze.h"
 #include "comdb2_atomic.h"
@@ -688,6 +689,7 @@ errout:
         goto backout;                                                          \
     } while (0);
 
+
 int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
                          tran_type *transac)
 {
@@ -906,6 +908,35 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
         } else
             db->tableversion = table_version_select(db, transac);
         sc_printf(s, "Reusing version %llu for same schema\n", db->tableversion);
+    }
+
+    char **audits;
+    int num_audits;
+    bdb_get_audited_sp_tran(transac, s->tablename, &audits, &num_audits);
+    struct schema_change_type **alter_audit_scs = malloc(num_audits * sizeof(struct schema_change_type *));
+
+    for(int i = 0; i < num_audits; i++){
+        logmsg(LOGMSG_WARN, "on alter %d\n", i);
+        char *audit = audits[i];
+        struct schema_change_type *sc = comdb2_alter_audited_sc(s->tablename, audit);
+        alter_audit_scs[i] = sc;
+        // zTODO: is this whole change the iq thing okay?
+        sc->iq = iq;
+        iq->sc = sc;
+        // zTODO: can I just call do_alter_table instead of do_ddl (or do_finalize)?
+        logmsg(LOGMSG_WARN, "doing an alter with table %s\n", sc->tablename);
+        int rc = do_alter_table(iq, sc, transac);
+        logmsg(LOGMSG_WARN, "finished an alter\n");
+    
+        if (rc){
+            logmsg(LOGMSG_WARN, "zTODO: Add functionality so in failure of alter, so it adds a new table");
+        }
+
+        iq->sc = s;
+    }
+    for(int i = 0; i < num_audits; i++){
+        finalize_alter_table(iq, alter_audit_scs[i], transac);
+        // zTODO: Do something on failure
     }
 
     set_odh_options_tran(db, transac);

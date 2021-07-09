@@ -43,7 +43,7 @@ int do_del_qdb_file(struct ireq *iq, struct schema_change_type *s,
 
 int finalize_del_qdb_file(struct ireq *iq, struct schema_change_type *s,
                           tran_type *tran);
-struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol);
+struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name);
 struct schema_change_type *gen_audited_lua(char *table_name, char *spname);
-
+struct schema_change_type *comdb2_alter_audited_sc(char *tablename, char *audit);
 #endif

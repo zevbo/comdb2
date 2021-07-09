@@ -791,7 +791,57 @@ int isSchemaWhitespace(char c){
 	return c == ' ' || c == '\n' || c == ']';
 }
 
-char *get_audit_schema(dbtable *db, int nCol){
+const char *del_prefix = "dltd_";
+
+// Note: this whole thing assumes you cannot change the names of columns
+//  If at some point that functionality is implemented, this needs to be updated
+// (I think. It might still be passable)
+// zTODO: currently I am going with O(n^2) cause I don't know if we have some kind of hashset?
+/*
+char **get_deleted_cols(dbtable *db, dbtable *old_db){
+
+    if (old_db == NULL){return NULL;}
+
+    // Doing this out of the for cause generally alloca is bad in loops
+    // I'm not enough of a c programmer to know of arrays have a different protocol
+    // zTODO: find someone who is enough of a c programmer to know that
+    char *prefix = alloca(4);
+    char deleted[old_db->schema->nmembers];
+    int num_deleted = 0;
+    memset(deleted, 0, old_db->schema->nmembers);
+    for(int i = 3; i < old_db->schema->nmembers; i++){
+        struct field *old_field = db->schema->member + i;
+        strncpy(prefix, old_field->name, 4);
+        // Accounts for already deleted columns, as well as standard columns such as "type"
+        if (strcmp(prefix, "old_") != 0 && strcmp(prefix, "new_") != 0){
+            continue;
+        }
+        for(int j = 0; j < db->schema->nmembers; j++){
+            // zTODO: right now the +4 (representing the new_ or old_) is hardcoded, which is bad
+            // Also hardcodes in initialization of prefix variable
+            if (strcmp(old_field->name + 4, field->name) == 0){
+                continue;
+            }
+        }
+        deleted[i] = true;
+        num_deleted++;
+    }
+    char **deleted_cols = malloc(num_deleted * sizeof(char *));
+    int del_col_ix = 0;
+    for(int i = 0; i < old_db->schema->nmembers; i++){
+        if(deleted[i]){
+            char *name = old_db->schema->member + i;
+            deleted_cols[i] = malloc((strlen(name) + 1) * sizeof(char));
+            strcpy(deleted_cols[i], name);
+        }
+    }
+    return deleted_cols;
+}
+
+*/
+
+/* Also works for when we need to get the alter scheam */
+char *get_audit_schema(dbtable *db){
 	int len = 0;
 	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
 	/* "}" */
@@ -853,137 +903,8 @@ char *get_audit_schema(dbtable *db, int nCol){
 	/* Assert that len_on is correct */
 	return audit_schema;
 }
-char **get_entries(dbtable *db, int nCol){
-	char *old_csc2 = NULL;
-	if (get_csc2_file(db->tablename, -1 /*highest csc2_version*/, &old_csc2,
-                      NULL /*csc2len*/)) {
-        logmsg(LOGMSG_ERROR, "could not get schema (audited trigger)\n");
-        return NULL;
-    }
-	// zTODO: this assumes that the schema is defined first
-	while(*old_csc2 != '{'){
-		old_csc2++;
-	}
-	old_csc2++;
-	int index_on = 0;
-	/* zTODO: malloc -> comdb2_malloc */
-	char **entries = malloc(nCol * sizeof(char *));
-	for(int entry_on = 0; old_csc2[entry_on] != '}'; entry_on++){
-		/* ws = whitespace */
-		int search_index = index_on;
-		/* on_whitespace starts as true so that we can effectively 
-		trim the start of the string */
-		int on_whitespace = 1;
-		/* ws_found starts as -1 because when we finish trimming
-		the string, it will increase ws_found by 1*/
-		while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
-		if (old_csc2[search_index] == '}'){
-			break;
-		}
-		for(int ws_found = 0; ws_found < 2; search_index++){
-			if (old_csc2[search_index] == '}'){
-				break;
-			}
-			int now_on_ws = isSchemaWhitespace(old_csc2[search_index]);
-			if (!on_whitespace && now_on_ws) {
-				ws_found++;
-			}
-			on_whitespace = now_on_ws;
-		}
-		while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
-		/* deals with arrays such as "cstring text [100] */
-		if (old_csc2[search_index] == '[') {
-			while(old_csc2[search_index] != ']'){search_index++;}
-			while(isSchemaWhitespace(old_csc2[search_index])){search_index++;}
-		}
-		int entry_len = search_index - index_on;
-		char *entry = malloc((entry_len + 1) * sizeof(char));
-		for(int i = 0; i < entry_len; i++){
-			entry[i] = old_csc2[index_on + i];
-		}
-		entry[entry_len] = 0;
-		index_on = search_index;
-		entries[entry_on] = entry;
 
-		while(1){
-			int i;
-			for(i = index_on; 
-				!isSchemaWhitespace(old_csc2[i]) && old_csc2[i] != '='; i++){
-				// Skip to next word (plausibly an equals)
-			}
-			while(isSchemaWhitespace(old_csc2[i])){i++;}
-			if(old_csc2[i] == '='){
-				i++;
-				// Skip to next word
-				while(isSchemaWhitespace(old_csc2[i])){i++;}
-				// Skip to next skip word
-				while(old_csc2[i] != '}' && !isSchemaWhitespace(old_csc2[i])){i++;}
-				// Skip to next line or attr
-				while(isSchemaWhitespace(old_csc2[i])){i++;}
-				index_on = i;
-			} else {
-				break;
-			}
-		} 
-	}
-	return entries;
-} 
-char *get_audit_schema_(dbtable *db, int nCol){
-	char **entries = get_entries(db, nCol);
-	int len = 0;
-	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
-	len += strlen(schema_start);
-	/* "}" */
-	len += 1;
-	char *line_postfix = "null=yes ";
-	for(int i = 0; i < nCol; i++){
-		int line_size = strlen(entries[i]) + strlen(line_postfix);
-		int new_line = line_size + 5; /* +1 is for the "new_ " */
-		int old_line = line_size + 5; /* +5 is for the "old_ " */
-		len += new_line + old_line;
-	}
-	char *audit_schema = malloc((len + 1) * sizeof(char));
-	strcpy(audit_schema, schema_start);
-	for(int i = 0; i < nCol; i++){
-		char *entry = entries[i];
-		int name_index = 0;
-		int on_whitespace = 1;
-		for(int ws_found = -1; ws_found < 1; name_index++){
-			int now_on_ws = isSchemaWhitespace(entry[name_index]);
-			if (on_whitespace && !now_on_ws) {
-				ws_found++;
-			}
-			on_whitespace = now_on_ws;
-		}
-		/* Name index decremneted so that it doesn't cut off first char of name */
-		name_index--;
-		char *type = malloc((name_index + 1) * sizeof(char));
-		char *name = malloc((strlen(entry) - name_index + 1) * sizeof(char));
-		memcpy(type, entry, name_index);
-		type[name_index] = '\0';
-		strcpy(name, entry + name_index);
-
-		strcat(audit_schema, type);
-		strcat(audit_schema, "new_");
-		strcat(audit_schema, name);
-		strcat(audit_schema, " ");
-		strcat(audit_schema, line_postfix);
-
-		strcat(audit_schema, type);
-		strcat(audit_schema , "old_");
-		strcat(audit_schema , name);
-		strcat(audit_schema , " ");
-		strcat(audit_schema , line_postfix);
-
-
-	}
-	strcat(audit_schema, "}");
-	logmsg(LOGMSG_WARN, "audit schema: [%lu] %s\n", strlen(audit_schema), audit_schema);
-	/* Assert that len_on is correct */
-	return audit_schema;
-}
-
-struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol){
+struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name){
 	struct schema_change_type *sc = new_schemachange_type();
 	// Guesses
     sc->onstack = 1;
@@ -1001,7 +922,7 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol){
     // It should be something like "es }" which is the ending to the audit schema in get_audit_schema
     // Update: No longer sure the above statment is correct. Might be fine now
 	struct dbtable *db = get_dbtable_by_name(name);
-	sc->newcsc2 = get_audit_schema(db, nCol);
+	sc->newcsc2 = get_audit_schema(db);
 
     if (db->instant_schema_change) sc->instant_sc = 1;
 
@@ -1009,6 +930,28 @@ struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name, int nCol){
 	if (db->odh) sc->headers = 1;
 
 	return sc;
+}
+struct schema_change_type *comdb2_alter_audited_sc(char *tablename, char *audit){
+
+    struct schema_change_type *sc = new_schemachange_type();
+    
+    // Note: maybe there needs to be a field saying its an alter?
+
+    // The following was gotten staight from comdb2AlterTableCSC2
+    sc->alteronly = 1;
+    sc->nothrevent = 1;
+    sc->live = 1;
+    sc->use_plan = 1;
+    sc->scanmode = SCAN_PARALLEL;
+    // Guessing shouldn't be a dry run
+    sc->dryrun = 0;
+
+    strcpy(sc->tablename, audit);
+
+    struct dbtable *db = get_dbtable_by_name(tablename);
+    sc->newcsc2 = get_audit_schema(db);
+
+    return sc;
 }
 
 struct schema_change_type *gen_audited_lua(char *table_name, char *spname){
@@ -1053,6 +996,7 @@ struct schema_change_type *gen_audited_lua(char *table_name, char *spname){
     strcpy(sc->fname, "built-in audit");
 	return sc;
 }
+
 static int close_qdb(struct dbtable *db, tran_type *tran)
 {
     int rc, bdberr = 0;
