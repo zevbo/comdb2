@@ -361,6 +361,26 @@ done:
     return rc;
 }
 
+
+int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
+    tran_type *trans)
+{
+    int rc = perform_trigger_update_int(sc);
+    javasp_do_procedure_unlock();
+    unlock_schema_lk();
+    logmsg(LOGMSG_WARN, "did add trigger\n");
+    return rc;
+}
+
+// zTODO: Is it okay to have these trigger functions in this file?
+// zTODO: break this up into multiple functions? maybe...
+// TODO -- what should this do? maybe log_scdone should be here
+int finalize_trigger(struct schema_change_type *s, tran_type *trans)
+{
+    return 0;
+}
+
+
 static inline void set_empty_queue_options(struct schema_change_type *s)
 {
     if (gbl_init_with_queue_odh == 0)
