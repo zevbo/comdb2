@@ -5824,10 +5824,6 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         sc->resume = 1;
 
     sc = populate_sc_chain(sc);
-    
-    if (sc->sc_chain_next){
-        logmsg(LOGMSG_WARN, "n0 with p %p\n", sc->sc_chain_next->sc_chain_next);
-    }
 
     while(sc){
         struct schema_change_type *next_sc = sc->sc_chain_next;

@@ -173,8 +173,7 @@ struct schema_change_type *populate_audited_trigger_chain(struct schema_change_t
     struct schema_change_type *sc_full = create_audit_table_sc(tablename);
     struct schema_change_type *sc_proc = gen_audited_lua(tablename, sc->tablename + 3);
     append_to_chain(sc_full, sc_proc);
-    logmsg(LOGMSG_WARN, "what is this: %p\n", sc_full->sc_chain_next->sc_chain_next);
-    //append_to_chain(sc_full, sc);
+    append_to_chain(sc_full, sc);
     return sc_full;
 }
 
