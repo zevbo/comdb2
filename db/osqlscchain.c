@@ -171,7 +171,7 @@ struct schema_change_type *gen_audited_lua(char *table_name, char *spname){
 struct schema_change_type *populate_audited_trigger_chain(struct schema_change_type *sc){
     char *tablename = get_trigger_table_name(sc->newcsc2);
     struct schema_change_type *sc_full = create_audit_table_sc(tablename);
-    struct schema_change_type *sc_proc = gen_audited_lua(tablename, sc_full->tablename);
+    struct schema_change_type *sc_proc = gen_audited_lua(tablename, sc->tablename + 3);
     append_to_chain(sc_full, sc_proc);
     logmsg(LOGMSG_WARN, "what is this: %p\n", sc_full->sc_chain_next->sc_chain_next);
     //append_to_chain(sc_full, sc);

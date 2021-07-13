@@ -5823,16 +5823,15 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         strcmp(sc->original_master_node, gbl_myhostname))
         sc->resume = 1;
 
-    if (sc->is_trigger == AUDITED_TRIGGER){
-        sc->sc_chain_next = create_audit_table_sc("test");//populate_sc_chain(sc);
-        sc->sc_chain_next->sc_chain_next = create_audit_table_sc("test");
-    }
+    sc = populate_sc_chain(sc);
+    
     if (sc->sc_chain_next){
         logmsg(LOGMSG_WARN, "n0 with p %p\n", sc->sc_chain_next->sc_chain_next);
     }
 
     while(sc){
         struct schema_change_type *next_sc = sc->sc_chain_next;
+        logmsg(LOGMSG_WARN, "tablename: %s\n", sc->tablename);
         iq->sc = sc;
         sc->iq = iq;
         sc->is_osql = 1;
