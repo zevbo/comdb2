@@ -9,5 +9,5 @@
 #include "comdb2uuid.h"
 
 struct schema_change_type * populate_sc_chain(struct schema_change_type *sc);
-
+struct schema_change_type *create_audit_table_sc(char *name);
 #endif
