@@ -555,11 +555,13 @@ char *get_table_name(char *newcsc2){
 int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans)
 {
-    if (sc->is_trigger == AUDITED_TRIGGER){
+    /*
+    if (0 && sc->is_trigger == AUDITED_TRIGGER){
+        
         char *table_name = get_table_name(sc->newcsc2);
         sc->audit_sc = comdb2CreateAuditTriggerScehma(table_name, sc->nCol);
-        sc->audit_sc->iq = iq;
-        iq->sc = sc->audit_sc;
+        // sc->audit_sc->iq = iq;
+        // iq->sc = sc->audit_sc;
         // zTODO: Maybe make it tell the user what table the data is being stored in? Difficult because we are currently on master
         int postfix_start = strlen(sc->audit_sc->tablename);
         for(int i = 2; get_dbtable_by_name(sc->audit_sc->tablename); i++){
@@ -578,14 +580,15 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         for(int i = 0; i < num_audits; i++){
             logmsg(LOGMSG_WARN, "Audit i: %s\n", audits[i]);
         }
-        rc = do_ddl(do_add_table, finalize_add_table, iq, sc->audit_sc, trans, add);
+        // rc = do_ddl(do_add_table, finalize_add_table, iq, sc->audit_sc, trans, add);
+        rc = do_schema_change_locked(sc->audit_sc);
         if (rc != SC_COMMIT_PENDING){return rc;}
         struct schema_change_type *proc_sc = gen_audited_lua(sc->audit_sc->tablename, sc->tablename + 3);
-        iq->sc = proc_sc;
         rc = do_add_sp(proc_sc, iq);
         if (rc != SC_COMMIT_PENDING){return rc;}
         iq->sc = sc;
-    }
+        
+    }*/
     wrlock_schema_lk();
     javasp_do_procedure_wrlock(); 
     /* Create the table and procedure */
