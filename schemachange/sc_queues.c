@@ -361,6 +361,7 @@ done:
     return rc;
 }
 
+
 static inline void set_empty_queue_options(struct schema_change_type *s)
 {
     if (gbl_init_with_queue_odh == 0)
@@ -785,62 +786,6 @@ done:
     // depending on where it is being executed from.
 }
 
-int isSchemaWhitespace(char c){
-	/* The ']' is here because that effectively acts as a whitespace seperator
-	   So does '[', but for these purposes that is unnecessary */
-	return c == ' ' || c == '\n' || c == ']';
-}
-
-const char *del_prefix = "dltd_";
-
-// Note: this whole thing assumes you cannot change the names of columns
-//  If at some point that functionality is implemented, this needs to be updated
-// (I think. It might still be passable)
-// zTODO: currently I am going with O(n^2) cause I don't know if we have some kind of hashset?
-/*
-char **get_deleted_cols(dbtable *db, dbtable *old_db){
-
-    if (old_db == NULL){return NULL;}
-
-    // Doing this out of the for cause generally alloca is bad in loops
-    // I'm not enough of a c programmer to know of arrays have a different protocol
-    // zTODO: find someone who is enough of a c programmer to know that
-    char *prefix = alloca(4);
-    char deleted[old_db->schema->nmembers];
-    int num_deleted = 0;
-    memset(deleted, 0, old_db->schema->nmembers);
-    for(int i = 3; i < old_db->schema->nmembers; i++){
-        struct field *old_field = db->schema->member + i;
-        strncpy(prefix, old_field->name, 4);
-        // Accounts for already deleted columns, as well as standard columns such as "type"
-        if (strcmp(prefix, "old_") != 0 && strcmp(prefix, "new_") != 0){
-            continue;
-        }
-        for(int j = 0; j < db->schema->nmembers; j++){
-            // zTODO: right now the +4 (representing the new_ or old_) is hardcoded, which is bad
-            // Also hardcodes in initialization of prefix variable
-            if (strcmp(old_field->name + 4, field->name) == 0){
-                continue;
-            }
-        }
-        deleted[i] = true;
-        num_deleted++;
-    }
-    char **deleted_cols = malloc(num_deleted * sizeof(char *));
-    int del_col_ix = 0;
-    for(int i = 0; i < old_db->schema->nmembers; i++){
-        if(deleted[i]){
-            char *name = old_db->schema->member + i;
-            deleted_cols[i] = malloc((strlen(name) + 1) * sizeof(char));
-            strcpy(deleted_cols[i], name);
-        }
-    }
-    return deleted_cols;
-}
-
-*/
-
-/* Also works for when we need to get the alter scheam */
 char *get_audit_schema(dbtable *db){
 	int len = 0;
 	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
@@ -904,97 +849,33 @@ char *get_audit_schema(dbtable *db){
 	return audit_schema;
 }
 
-struct schema_change_type *comdb2CreateAuditTriggerScehma(char *name){
-	struct schema_change_type *sc = new_schemachange_type();
-	// Guesses
-    sc->onstack = 1;
-	sc->type = DBTYPE_TAGGED_TABLE;
-	sc->scanmode = gbl_default_sc_scanmode;
-    sc->live = 1;
-	// Maybe need use_plan?
-	sc->addonly = 1;
-
-	char *prefix = "$audit_";
-	strcpy(sc->tablename, prefix);
-	strcat(sc->tablename, name);
-    // zTODO: I think that get_dbtable_by_name ultimately frees name. If it doesn't we have a problem: some undefined behavior somewhere
-    // To see odd behavior, simply look at the contents of name after get_audit_schema is called
-    // It should be something like "es }" which is the ending to the audit schema in get_audit_schema
-    // Update: No longer sure the above statment is correct. Might be fine now
-	struct dbtable *db = get_dbtable_by_name(name);
-	sc->newcsc2 = get_audit_schema(db);
-
-    if (db->instant_schema_change) sc->instant_sc = 1;
-
-	// What is ODH? This is just copied from timepart
-	if (db->odh) sc->headers = 1;
-
-	return sc;
-}
-struct schema_change_type *comdb2_alter_audited_sc(char *tablename, char *audit){
-
-    struct schema_change_type *sc = new_schemachange_type();
-    
-    // Note: maybe there needs to be a field saying its an alter?
-
-    // The following was gotten staight from comdb2AlterTableCSC2
-    sc->alteronly = 1;
-    sc->nothrevent = 1;
-    sc->live = 1;
-    sc->use_plan = 1;
-    sc->scanmode = SCAN_PARALLEL;
-    // Guessing shouldn't be a dry run
-    sc->dryrun = 0;
-
-    strcpy(sc->tablename, audit);
-
-    struct dbtable *db = get_dbtable_by_name(tablename);
-    sc->newcsc2 = get_audit_schema(db);
-
-    return sc;
-}
-
-struct schema_change_type *gen_audited_lua(char *table_name, char *spname){
-	char *code_start = 
-    "local function main(event)\n"
-    "	local audit = db:table('";
-    char * code_end = 
-        "')\n"
-    "    local chg = {}\n"
-    "    if event.new ~= nil then\n"
-    "        for k, v in pairs(event.new) do\n"
-    "            chg['new_'..k] = v\n"
-    "        end\n"
-    "    end\n"
-    "    if event.old ~= nil then\n"
-    "        for k, v in pairs(event.old) do\n"
-    "            chg['old_'..k] = v\n"
-    "        end\n"
-    "    end\n"
-    "    chg.type = event.type\n"
-    "    chg.tbl = event.name\n"
-    "    chg.logtime = db:now()\n"
-    "    return audit:insert(chg)\n"
-    "end\n";
-    char *code = malloc((strlen(code_start) + strlen(code_end) + strlen(table_name) + 1) * sizeof(char));
-    strcpy(code, code_start);
-    strcat(code, table_name);
-    strcat(code, code_end);
-    /*
-	zTODO: Got to make this work at some point
-    if (comdb2TokenToStr(nm, spname, sizeof(spname))) {
-        setError(pParse, SQLITE_MISUSE, "Procedure name is too long");
-        logmsg(LOGMSG_WARN, "Failure on comdb2TokenToStr\n");
-        return;
+int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
+    tran_type *trans)
+{
+    logmsg(LOGMSG_WARN, "is trigger: %d\n", sc->is_trigger);
+    if (sc->is_trigger == AUDITED_TRIGGER){
+        bdb_set_audited_sp_tran(trans, sc->trigger_table, sc->audit_table);
+        logmsg(LOGMSG_WARN, "in theory set\n");
+        char **audits;
+        int num_audits;
+        bdb_get_audited_sp_tran(trans, sc->tablename, &audits, &num_audits);
+        logmsg(LOGMSG_WARN, "num audits for %s: %d\n", sc->tablename, num_audits);
     }
-    */
+    wrlock_schema_lk();
+    javasp_do_procedure_wrlock(); 
+    int rc = perform_trigger_update_int(sc);
+    javasp_do_procedure_unlock();
+    unlock_schema_lk();
+    logmsg(LOGMSG_WARN, "did add trigger\n");
+    return rc;
+}
 
-    struct schema_change_type *sc = new_schemachange_type();
-    strcpy(sc->tablename, spname);
-    sc->addsp = 1;
-    sc->newcsc2 = code;
-    strcpy(sc->fname, "built-in audit");
-	return sc;
+// zTODO: Is it okay to have these trigger functions in this file?
+// zTODO: break this up into multiple functions? maybe...
+// TODO -- what should this do? maybe log_scdone should be here
+int finalize_trigger(struct schema_change_type *s, tran_type *trans)
+{
+    return 0;
 }
 
 static int close_qdb(struct dbtable *db, tran_type *tran)

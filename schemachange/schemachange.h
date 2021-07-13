@@ -65,6 +65,7 @@ enum { SC_NOT_ADD = 0, SC_TO_ADD = 1, SC_DONE_ADD = 2 };
 /* type for is_trigger */
 enum { NO_TRIGGER = 0, NORMAL_TRIGGER = 1, AUDITED_TRIGGER = 2 };
 
+
 struct schema_change_type {
     /*  ==========    persistent members ========== */
     unsigned long long rqid;
@@ -228,7 +229,10 @@ struct schema_change_type {
     unsigned set_running : 1;
     uint64_t seed;
     int nCol; /* number of columns, zTODO: -1 for not stated */
-    struct schema_change_type *audit_sc;
+    char *trigger_table; /* only currently initialized for audited triggers */
+    char *audit_table; /* name of audit table if it is an audited trigger */
+    struct schema_change_type *sc_chain_next;
+    int is_monitered_alter;
 };
 
 struct ireq;

@@ -388,6 +388,13 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
         goto convert_records;
     }
 
+    if (s->is_monitered_alter){
+        // zTODO: maybe handle error for this? Maybe not necessary
+        struct dbtable *subscribed_db = get_dbtable_by_name(s->newcsc2);
+        s->newcsc2 = get_audit_schema(subscribed_db);
+        logmsg(LOGMSG_WARN, "Newcsc2 is: %s\n", s->newcsc2);
+    }
+
     set_schemachange_options_tran(s, db, &scinfo, tran);
 
     if ((rc = check_option_coherency(s, db, &scinfo))) return rc;
@@ -672,6 +679,12 @@ errout:
         backout_constraint_pointers(newdb, db);
         delete_temp_table(iq, newdb);
         change_schemas_recover(s->tablename);
+
+        if (s->is_monitered_alter && rc == CDB2ERR_SCHEMACHANGE){
+            logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented");
+            return 0;
+        }
+
         return rc;
     }
     newdb->iq = NULL;
@@ -910,6 +923,7 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
         sc_printf(s, "Reusing version %llu for same schema\n", db->tableversion);
     }
 
+    /*
     char **audits;
     int num_audits;
     bdb_get_audited_sp_tran(transac, s->tablename, &audits, &num_audits);
@@ -938,6 +952,7 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
         finalize_alter_table(iq, alter_audit_scs[i], transac);
         // zTODO: Do something on failure
     }
+    */
 
     set_odh_options_tran(db, transac);
 

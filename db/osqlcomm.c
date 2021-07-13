@@ -52,8 +52,9 @@
 #include <unistd.h>
 #include "osqlsqlnet.h"
 #include "osqlsqlsocket.h"
+#include "osqlscchain.h"
 #include "sc_global.h"
-
+#include "osqlscchain.h"
 
 #define MAX_CLUSTER 16
 
@@ -5822,38 +5823,47 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         strcmp(sc->original_master_node, gbl_myhostname))
         sc->resume = 1;
 
-    iq->sc = sc;
-    sc->iq = iq;
-    sc->is_osql = 1;
-    if (sc->db == NULL) {
-        sc->db = get_dbtable_by_name(sc->tablename);
-    }
-    sc->tran = NULL;
-    if (sc->db)
-        iq->usedb = sc->db;
+    sc = populate_sc_chain(sc);
 
-    if (!timepart_is_timepart(sc->tablename, 1)) {
-        rc = start_schema_change_tran(iq, NULL);
-        if ((rc != SC_ASYNC && rc != SC_COMMIT_PENDING) ||
-            sc->preempted == SC_ACTION_RESUME ||
-            sc->alteronly == SC_ALTER_PENDING) {
-            iq->sc = NULL;
-        } else {
-            iq->sc->sc_next = iq->sc_pending;
-            iq->sc_pending = iq->sc;
-            iq->osql_flags |= OSQL_FLAGS_SCDONE;
+    while(sc){
+        struct schema_change_type *next_sc = sc->sc_chain_next;
+        logmsg(LOGMSG_WARN, "tablename: %s\n", sc->tablename);
+        iq->sc = sc;
+        sc->iq = iq;
+        sc->is_osql = 1;
+        if (sc->db == NULL) {
+            sc->db = get_dbtable_by_name(sc->tablename);
         }
-    } else {
-        timepart_sc_arg_t arg = {0};
-        arg.s = sc;
-        arg.s->iq = iq;
-        rc = timepart_foreach_shard(sc->tablename,
-                                    start_schema_change_tran_wrapper, &arg, -1);
+        sc->tran = NULL;
+        if (sc->db)
+            iq->usedb = sc->db;
+
+        if (!timepart_is_timepart(sc->tablename, 1)) {
+            rc = start_schema_change_tran(iq, NULL);
+            if ((rc != SC_ASYNC && rc != SC_COMMIT_PENDING) ||
+                sc->preempted == SC_ACTION_RESUME ||
+                sc->alteronly == SC_ALTER_PENDING) {
+                iq->sc = NULL;
+            } else {
+                iq->sc->sc_next = iq->sc_pending;
+                iq->sc_pending = iq->sc;
+                iq->osql_flags |= OSQL_FLAGS_SCDONE;
+            }
+        } else {
+            timepart_sc_arg_t arg = {0};
+            arg.s = sc;
+            arg.s->iq = iq;
+            rc = timepart_foreach_shard(sc->tablename,
+                                        start_schema_change_tran_wrapper, &arg, -1);
+        }
+        logmsg(LOGMSG_WARN, "n4 with p %p\n", sc->sc_chain_next);
+        sc = next_sc;
+        // old_sc->sc_chain_next = NULL;
     }
     iq->usedb = NULL;
 
-    if (!rc || rc == SC_ASYNC || rc == SC_COMMIT_PENDING)
-        return 0;
+    if (!rc || rc == SC_ASYNC || rc == SC_COMMIT_PENDING) return 0;
+    
 
     return ERR_SC;
 }
