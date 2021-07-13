@@ -5824,8 +5824,8 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         sc->resume = 1;
 
     if (sc->is_trigger == AUDITED_TRIGGER){
-        sc = create_audit_table_sc("test");//populate_sc_chain(sc);
-        sc->sc_chain_next = create_audit_table_sc("test");
+        sc->sc_chain_next = create_audit_table_sc("test");//populate_sc_chain(sc);
+        sc->sc_chain_next->sc_chain_next = create_audit_table_sc("test");
     }
     if (sc->sc_chain_next){
         logmsg(LOGMSG_WARN, "n0 with p %p\n", sc->sc_chain_next->sc_chain_next);
@@ -5844,11 +5844,7 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
             iq->usedb = sc->db;
 
         if (!timepart_is_timepart(sc->tablename, 1)) {
-            logmsg(LOGMSG_WARN, "n2 with p %p\n", sc->sc_chain_next);
-            // zTODO: sc->sc_chain_next gets changed to something random here.
-            // Undefined behavior?
             rc = start_schema_change_tran(iq, NULL);
-            logmsg(LOGMSG_WARN, "n3 with p %p\n", sc->sc_chain_next);
             if ((rc != SC_ASYNC && rc != SC_COMMIT_PENDING) ||
                 sc->preempted == SC_ACTION_RESUME ||
                 sc->alteronly == SC_ALTER_PENDING) {
