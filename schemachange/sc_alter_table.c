@@ -354,7 +354,7 @@ static void check_for_idx_rename(struct dbtable *newdb, struct dbtable *olddb)
     }
 }
 
-int do_alter_table(struct ireq *iq, struct schema_change_type *s,
+int do_alter_table_normal(struct ireq *iq, struct schema_change_type *s,
                    tran_type *tran)
 {
     struct dbtable *db;
@@ -387,14 +387,6 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
         changed = s->schema_change;
         goto convert_records;
     }
-
-    if (s->is_monitered_alter){
-        // zTODO: maybe handle error for this? Maybe not necessary
-        struct dbtable *subscribed_db = get_dbtable_by_name(s->newcsc2);
-        s->newcsc2 = get_audit_schema(subscribed_db);
-        logmsg(LOGMSG_WARN, "Newcsc2 is: %s\n", s->newcsc2);
-    }
-
     set_schemachange_options_tran(s, db, &scinfo, tran);
 
     if ((rc = check_option_coherency(s, db, &scinfo))) return rc;
@@ -680,10 +672,6 @@ errout:
         delete_temp_table(iq, newdb);
         change_schemas_recover(s->tablename);
 
-        if (s->is_monitered_alter && rc == CDB2ERR_SCHEMACHANGE){
-            logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented");
-            return 0;
-        }
 
         return rc;
     }
@@ -701,6 +689,24 @@ errout:
         sc_errf(s, "%s:%d backing out\n", __func__, __LINE__);                 \
         goto backout;                                                          \
     } while (0);
+
+int do_alter_table(struct ireq *iq, struct schema_change_type *s,
+                   tran_type *tran){
+    if (s->is_monitered_alter){
+        struct dbtable *subscribed_db = get_dbtable_by_name(s->newcsc2);
+        s->newcsc2 = get_audit_schema(subscribed_db);
+        logmsg(LOGMSG_WARN, "Newcsc2 is: %s\n", s->newcsc2);
+        int rc = do_alter_table_normal(iq, s, tran);
+        if (rc == CDB2ERR_SCHEMACHANGE){
+            logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented");
+            return 0;
+        } else {
+            return rc;
+        }
+    } else {
+        return do_alter_table_normal(iq, s, tran);
+    }
+}
 
 
 int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
