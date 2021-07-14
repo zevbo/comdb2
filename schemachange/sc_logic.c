@@ -600,8 +600,11 @@ static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
         abort();
     }
 
+    logmsg(LOGMSG_WARN, "attempting to lock\n");
     Pthread_mutex_lock(&s->mtx);
+    logmsg(LOGMSG_WARN, "1 locked\n");
     Pthread_mutex_lock(&s->mtxStart);
+    logmsg(LOGMSG_WARN, "locked\n");
     s->started = 1;
     Pthread_cond_signal(&s->condStart);
     Pthread_mutex_unlock(&s->mtxStart);
@@ -725,6 +728,7 @@ downgraded:
         }
         if (!no_reset)
             reset_sc_thread(oldtype, s);
+        logmsg(LOGMSG_WARN, "unlocking mtx\n");
         Pthread_mutex_unlock(&s->mtx);
         return 0;
     } else if (s->resume == SC_NEW_MASTER_RESUME || rc == SC_COMMIT_PENDING ||
@@ -732,11 +736,13 @@ downgraded:
                (!s->nothrevent && !s->finalize)) {
         if (!no_reset)
             reset_sc_thread(oldtype, s);
+        logmsg(LOGMSG_WARN, "unlocking mtx\n");
         Pthread_mutex_unlock(&s->mtx);
         return rc;
     }
     if (!no_reset)
         reset_sc_thread(oldtype, s);
+    logmsg(LOGMSG_WARN, "unlocking mtx\n");
     Pthread_mutex_unlock(&s->mtx);
     if (!s->is_osql) {
         if (rc == SC_MASTER_DOWNGRADE) {
@@ -867,6 +873,7 @@ void *sc_resuming_watchdog(void *p)
         iq.sc = stored_sc;
         if (iq.sc->db)
             iq.sc->db->sc_abort = 1;
+        logmsg(LOGMSG_WARN, "sc_logic mtx lock sc_resuming_watchdog");
         Pthread_mutex_lock(&(iq.sc->mtx));
         stored_sc = stored_sc->sc_next;
         logmsg(LOGMSG_INFO, "%s: aborting schema change of table '%s'\n",

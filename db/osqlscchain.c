@@ -1,19 +1,12 @@
 #include "osqlscchain.h"
 #include <schemachange.h>
 #include "logmsg.h"
+#include <sc_chain.h>
 #include <math.h>
 #include <sc_queues.h>
 
 // Errors I have gotten here:
 // 1. Two schema changes with the same tablename; ie: don't use reserved resources
-
-static void append_to_chain(struct schema_change_type *sc, struct schema_change_type *sc_chain_next){
-    if (sc->sc_chain_next){
-        append_to_chain(sc->sc_chain_next, sc_chain_next);
-    } else {
-        sc->sc_chain_next = sc_chain_next;
-    }
-}
 
 static struct schema_change_type *create_audit_table_sc(char *name){
 	struct schema_change_type *sc = new_schemachange_type();
@@ -34,7 +27,7 @@ static struct schema_change_type *create_audit_table_sc(char *name){
     // It should be something like "es }" which is the ending to the audit schema in get_audit_schema
     // Update: No longer sure the above statment is correct. Might be fine now
 	struct dbtable *db = get_dbtable_by_name(name);
-	sc->newcsc2 = get_audit_schema(db);
+	sc->newcsc2 = get_audit_schema(db->schema);
 
     if (db->instant_schema_change) sc->instant_sc = 1;
 
@@ -118,47 +111,25 @@ static struct schema_change_type *populate_audited_trigger_chain(struct schema_c
     sc->trigger_table = tablename;
     return sc_full;
 }
-
-static struct schema_change_type *comdb2_alter_audited_sc(struct schema_change_type *previous_alter, char *audit){
-
-    struct schema_change_type *sc = malloc(sizeof(struct schema_change_type));
-    logmsg(LOGMSG_WARN, "copying to sc\n");
-    memcpy(sc, previous_alter, sizeof(struct schema_change_type));
-    logmsg(LOGMSG_WARN, "sc copied to\n");
+// zTODO: Better name
+void fix_alter(struct schema_change_type *sc){
     
-    sc->is_monitered_alter = 1;
-    sc->newcsc2 = malloc(strlen(sc->tablename) + 1);
-    strcpy(sc->newcsc2, sc->tablename);
-    strcpy(sc->tablename, audit);
-    logmsg(LOGMSG_WARN, "the newcsc2: %s\n", sc->newcsc2);
-
-    return sc;
-}
-
-static struct schema_change_type *populate_alter_chain(struct schema_change_type *sc, tran_type *tran){
-    logmsg(LOGMSG_WARN, "doing populate alter chain\n");
     char **audits;
     int num_audits;
-    bdb_get_audited_sp_tran(tran, sc->tablename, &audits, &num_audits);
-    struct schema_change_type *sc_on = sc;
-    for(int i = 0; i < num_audits; i++){
-        logmsg(LOGMSG_WARN, "on alter %d\n", i);
-        char *audit = audits[i];
-        struct schema_change_type *curr_sc = comdb2_alter_audited_sc(sc_on, audit);
-        sc_on->sc_chain_next = curr_sc;
-        sc_on = sc_on->sc_chain_next;
-        logmsg(LOGMSG_WARN, "returning sc_on\n");
-        return sc_on;
-        //populate_alter_chain(sc_on, tran);
+    // zTODO: Is version important here?
+    // zTODO: is the dbenv correct?
+    bdb_get_audited_sp_tran(sc->tran, sc->tablename, &audits, &num_audits);
+    if (num_audits > 0){
+        sc->nothrevent = 1;
     }
-    return sc;
 }
 
 struct schema_change_type *populate_sc_chain(struct schema_change_type *sc){
+    // zTODO: I'm putting this here cause I already want to kms b/c of it and this will remind me how bad it is
+    sc->create_version_schema = create_version_schema;
+    fix_alter(sc);
     if (sc->is_trigger == AUDITED_TRIGGER){
         return populate_audited_trigger_chain(sc);
-    } else if (sc->alteronly) {
-        return populate_alter_chain(sc, sc->tran);
     } else {
         return sc;
     }

@@ -6783,6 +6783,8 @@ struct schema *create_version_schema(char *csc2, int version,
     }
 
     ver_db = newdb_from_schema(dbenv, gbl_ver_temp_table, NULL, 0, 0, 0);
+
+    // Bottom Bound
     if (ver_db == NULL) {
         logmsg(LOGMSG_ERROR, "newdb_from_schema failed %s:%d\n", __FILE__, __LINE__);
         goto err;

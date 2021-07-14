@@ -8,8 +8,16 @@
 #include "block_internal.h"
 #include "comdb2uuid.h"
 
-/* Note: here we are limited by the fact that we must decide what and how many schema changes we
-are going to do before any of the earlier schema changes have occured */
+/* The idea is here you can do an initial populate. However, you can 
+ also add schema changes to the queues while they are being prepared 
+ in the schema change folder. This is critical for dynamically choosing
+ schema changes based on results of previous schema changes. I think
+ we still need to keep this initial populate though, as sometimes you
+ need to flip schema changes so that the original schema change isn't executed
+ first. Also, it is nice to be able to do stuff based on the first sc.
+ With that said (zTODO?) it might be beneficial to get rid of this one
+ as it can be replaced with schema changes that do not do anything except
+ for populating more schema changes in the chain */
 
 struct schema_change_type *populate_sc_chain(struct schema_change_type *sc);
 #endif

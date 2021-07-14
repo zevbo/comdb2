@@ -786,15 +786,15 @@ done:
     // depending on where it is being executed from.
 }
 
-char *get_audit_schema(dbtable *db){
+char *get_audit_schema(struct schema *schema){
 	int len = 0;
 	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
 	/* "}" */
     len += strlen(schema_start);
     len += 1;
 	char *line_postfix = "null=yes ";
-	for(int i = 0; i < db->schema->nmembers; i++){
-		struct field *entry = db->schema->member + i;
+	for(int i = 0; i < schema->nmembers; i++){
+		struct field *entry = schema->member + i;
 		int line_size = strlen(csc2type(entry)) + 1 + strlen(entry->name) + strlen(line_postfix);
         // zTODO: their should be a list of types that can do this
         if (entry->type == SERVER_BCSTR || entry->type == SERVER_BYTEARRAY){
@@ -807,8 +807,8 @@ char *get_audit_schema(dbtable *db){
 	}
 	char *audit_schema = malloc((len + 1) * sizeof(char));
 	strcpy(audit_schema, schema_start);
-	for(int i = 0; i < db->schema->nmembers; i++){
-		struct field *entry = db->schema->member + i;
+	for(int i = 0; i < schema->nmembers; i++){
+		struct field *entry = schema->member + i;
         
 		char *type = csc2type(entry);
 		char *name = NULL;

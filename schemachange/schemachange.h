@@ -233,6 +233,9 @@ struct schema_change_type {
     char *audit_table; /* name of audit table if it is an audited trigger */
     struct schema_change_type *sc_chain_next;
     int is_monitered_alter;
+    // zTODO: this makes me want to end my entire existence
+    struct schema *(*create_version_schema)(char *csc2, int version,
+                                     struct dbenv *dbenv);
 };
 
 struct ireq;

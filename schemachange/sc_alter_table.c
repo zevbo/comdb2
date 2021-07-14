@@ -28,6 +28,7 @@
 #include "sc_logic.h"
 #include "sc_queues.h"
 #include "sc_records.h"
+#include "sc_chain.h"
 #include "analyze.h"
 #include "comdb2_atomic.h"
 
@@ -354,6 +355,58 @@ static void check_for_idx_rename(struct dbtable *newdb, struct dbtable *olddb)
     }
 }
 
+
+// zTODO: I'm re-writing the creation of schema change objects like freaking everywhere
+static struct schema_change_type *comdb2_alter_audited_sc(struct schema_change_type *pre, struct schema *s, char *audit){
+
+    struct schema_change_type *sc = new_schemachange_type();
+    
+    // Kill me
+    sc->alteronly = pre->alteronly;
+    sc->nothrevent = pre->nothrevent;
+    sc->live = pre->live;
+    sc->use_plan = pre->use_plan;
+    sc->scanmode = pre->scanmode;
+    sc->dryrun = pre->dryrun;
+    sc->headers = pre->headers;
+    sc->ip_updates = pre->ip_updates;
+    sc->instant_sc = pre->instant_sc;
+    sc->compress_blobs = pre->compress_blobs;
+    sc->compress = pre->compress;
+    sc->force_rebuild = pre->force_rebuild;
+    sc->live = pre->live;
+    sc->commit_sleep = pre->commit_sleep;
+    sc->convert_sleep = pre->convert_sleep;
+    sc->create_version_schema = pre->create_version_schema;
+    sc->nothrevent = pre->nothrevent;
+    
+    sc->is_monitered_alter = 1;
+    sc->newcsc2 = get_audit_schema(s);
+    strcpy(sc->tablename, audit);
+    logmsg(LOGMSG_WARN, "the newcsc2: %s\n", sc->newcsc2);
+
+    return sc;
+}
+
+void populate_alter_chain(struct dbtable *db, struct schema_change_type *sc, tran_type *tran){
+    if (sc->newcsc2){
+        logmsg(LOGMSG_WARN, "doing populate alter chain on newcsc2: %s\n", sc->newcsc2);
+        char **audits;
+        int num_audits;
+        // zTODO: Is version important here?
+        // zTODO: is the dbenv correct?
+        bdb_get_audited_sp_tran(tran, sc->tablename, &audits, &num_audits);
+        logmsg(LOGMSG_WARN, "num audits: %d\n", num_audits);
+        logmsg(LOGMSG_WARN, "dbenv: %d\n", db->dbenv->dbnum);
+        struct schema *s = sc->create_version_schema(sc->newcsc2, -1, db->dbenv);
+        logmsg(LOGMSG_WARN, "got schema\n");
+        for(int i = 0; i < num_audits; i++){
+            add_next_to_chain(sc, comdb2_alter_audited_sc(sc, s, audits[i]));
+        }
+        logmsg(LOGMSG_WARN, "done with this\n");
+    }
+}
+
 int do_alter_table_normal(struct ireq *iq, struct schema_change_type *s,
                    tran_type *tran)
 {
@@ -377,6 +430,7 @@ int do_alter_table_normal(struct ireq *iq, struct schema_change_type *s,
     gbl_sc_last_writer_time = 0;
 
     db = get_dbtable_by_name(s->tablename);
+    populate_alter_chain(db, s, tran);
     if (db == NULL) {
         sc_errf(s, "Table not found:%s\n", s->tablename);
         return SC_TABLE_DOESNOT_EXIST;
@@ -693,9 +747,10 @@ errout:
 int do_alter_table(struct ireq *iq, struct schema_change_type *s,
                    tran_type *tran){
     if (s->is_monitered_alter){
-        struct dbtable *subscribed_db = get_dbtable_by_name(s->newcsc2);
-        s->newcsc2 = get_audit_schema(subscribed_db);
-        logmsg(LOGMSG_WARN, "Newcsc2 is: %s\n", s->newcsc2);
+        logmsg(LOGMSG_WARN, "starting monitered alter\n");
+        // struct dbtable *subscribed_db = get_dbtable_by_name(s->newcsc2);
+        // s->newcsc2 = get_audit_schema(subscribed_db);
+        // logmsg(LOGMSG_WARN, "Newcsc2 is: %s\n", s->newcsc2);
         int rc = do_alter_table_normal(iq, s, tran);
         if (rc == CDB2ERR_SCHEMACHANGE){
             logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented");
@@ -704,6 +759,7 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
             return rc;
         }
     } else {
+        logmsg(LOGMSG_WARN, "starting regular alter\n");
         return do_alter_table_normal(iq, s, tran);
     }
 }
