@@ -1,18 +1,11 @@
 #include "osqlscchain.h"
 #include <schemachange.h>
 #include "logmsg.h"
+#include <sc_chain.h>
 #include <math.h>
 
 // Errors I have gotten here:
 // 1. Two schema changes with the same tablename; ie: don't use reserved resources
-
-void append_to_chain(struct schema_change_type *sc, struct schema_change_type *sc_chain_next){
-    if (sc->sc_chain_next){
-        append_to_chain(sc->sc_chain_next, sc_chain_next);
-    } else {
-        sc->sc_chain_next = sc_chain_next;
-    }
-}
 
 // Not the cause of the current undefined behavior
 char *get_audit_schema(dbtable *db){

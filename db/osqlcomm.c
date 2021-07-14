@@ -5861,7 +5861,6 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         // old_sc->sc_chain_next = NULL;
     }
     iq->usedb = NULL;
-
     if (!rc || rc == SC_ASYNC || rc == SC_COMMIT_PENDING) return 0;
     
 
