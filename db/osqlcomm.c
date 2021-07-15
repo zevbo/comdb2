@@ -5823,9 +5823,9 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         strcmp(sc->original_master_node, gbl_myhostname))
         sc->resume = 1;
 
-    sc = populate_sc_chain(sc);
 
     while(sc){
+        sc = populate_sc_chain(sc);
         //struct schema_change_type *next_sc = sc->sc_chain_next;
         logmsg(LOGMSG_WARN, "tablename: %s\n", sc->tablename);
         iq->sc = sc;

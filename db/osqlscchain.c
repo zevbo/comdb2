@@ -8,6 +8,17 @@
 // Errors I have gotten here:
 // 1. Two schema changes with the same tablename; ie: don't use reserved resources
 
+/* takes a table name and continues trying integers starting with 2 at the end until it finds a table that does not yet exist */
+void make_name_available(char *prefix){
+    int postfix_start = strlen(prefix);
+    for(int i = 2; get_dbtable_by_name(prefix); i++){
+        char *postfix_str = malloc((ceil(log(i)) + 1) * sizeof(char));
+        sprintf(postfix_str, "$%d", i);
+        strcpy(prefix + postfix_start, postfix_str);
+        free(postfix_str);
+    }    
+}
+
 static struct schema_change_type *create_audit_table_sc(char *name){
 	struct schema_change_type *sc = new_schemachange_type();
     sc->sc_chain_next = NULL;
@@ -34,13 +45,7 @@ static struct schema_change_type *create_audit_table_sc(char *name){
 	// What is ODH? This is just copied from timepart
 	if (db->odh) sc->headers = 1;
 
-    int postfix_start = strlen(sc->tablename);
-    for(int i = 2; get_dbtable_by_name(sc->tablename); i++){
-        char *postfix_str = malloc((ceil(log(i)) + 1) * sizeof(char));
-        sprintf(postfix_str, "$%d", i);
-        strcpy(sc->tablename + postfix_start, postfix_str);
-        free(postfix_str);
-    }
+    make_name_available(sc->tablename);
 
 	return sc;
 }
@@ -111,25 +116,62 @@ static struct schema_change_type *populate_audited_trigger_chain(struct schema_c
     sc->trigger_table = tablename;
     return sc_full;
 }
+void copy_alter_fields(struct schema_change_type *sc, struct schema_change_type *pre){
+    // Kill me
+    sc->alteronly = pre->alteronly;
+    sc->nothrevent = pre->nothrevent;
+    sc->live = pre->live;
+    sc->use_plan = pre->use_plan;
+    sc->scanmode = pre->scanmode;
+    sc->dryrun = pre->dryrun;
+    sc->headers = pre->headers;
+    sc->ip_updates = pre->ip_updates;
+    sc->instant_sc = pre->instant_sc;
+    sc->compress_blobs = pre->compress_blobs;
+    sc->compress = pre->compress;
+    sc->force_rebuild = pre->force_rebuild;
+    sc->live = pre->live;
+    sc->commit_sleep = pre->commit_sleep;
+    sc->convert_sleep = pre->convert_sleep;
+    sc->create_version_schema = pre->create_version_schema;
+    sc->nothrevent = pre->nothrevent;
+
+}
 // zTODO: Better name
-void fix_alter(struct schema_change_type *sc){
+static struct schema_change_type *pupulate_audit_alters(struct schema_change_type *sc){
     
     char **audits;
     int num_audits;
-    // zTODO: Is version important here?
-    // zTODO: is the dbenv correct?
-    bdb_get_audited_sp_tran(sc->tran, sc->tablename, &audits, &num_audits);
-    if (num_audits > 0){
-        sc->nothrevent = 1;
+
+    logmsg(LOGMSG_WARN, "new csc2: %s\n", pre->newcsc2);
+
+    bdb_get_audited_sp_tran(pre->tran, pre->tablename, &audits, &num_audits);
+    for(int i = 0; i < num_audits; i++){
+    
+        struct schema_change_type *alter_table_sc = new_schemachange_type();
+        
+        copy_alter_fields(alter_table_sc, sc);
+
+        char *audit = audits[i];
+        strcpy(sc->newtable, audit);
+        strcat(sc->newtable, "$old");
+        make_name_available(new_name);
+        
+        append_to_chain(pre, sc);
+
     }
+
+    return sc;
+
 }
 
 struct schema_change_type *populate_sc_chain(struct schema_change_type *sc){
     // zTODO: I'm putting this here cause I already want to kms b/c of it and this will remind me how bad it is
     sc->create_version_schema = create_version_schema;
-    fix_alter(sc);
     if (sc->is_trigger == AUDITED_TRIGGER){
         return populate_audited_trigger_chain(sc);
+    } else if (sc->alteronly && sc->newcsc2) {
+        return populate_audited_alters(sc);
     } else {
         return sc;
     }

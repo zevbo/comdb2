@@ -379,6 +379,7 @@ static struct schema_change_type *comdb2_alter_audited_sc(struct schema_change_t
     sc->convert_sleep = pre->convert_sleep;
     sc->create_version_schema = pre->create_version_schema;
     sc->nothrevent = pre->nothrevent;
+    logmsg(LOGMSG_WARN, "nothrevent: %d\n", sc->nothrevent);
     
     sc->is_monitered_alter = 1;
     sc->newcsc2 = get_audit_schema(s);
@@ -430,7 +431,7 @@ int do_alter_table_normal(struct ireq *iq, struct schema_change_type *s,
     gbl_sc_last_writer_time = 0;
 
     db = get_dbtable_by_name(s->tablename);
-    populate_alter_chain(db, s, tran);
+    // populate_alter_chain(db, s, tran);
     if (db == NULL) {
         sc_errf(s, "Table not found:%s\n", s->tablename);
         return SC_TABLE_DOESNOT_EXIST;
@@ -752,7 +753,8 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
         // s->newcsc2 = get_audit_schema(subscribed_db);
         // logmsg(LOGMSG_WARN, "Newcsc2 is: %s\n", s->newcsc2);
         int rc = do_alter_table_normal(iq, s, tran);
-        if (rc == CDB2ERR_SCHEMACHANGE){
+            logmsg(LOGMSG_WARN, "Finished do_alter_table_normal with rc %d [%d, %d, %d]\n", rc, CDB2ERR_SCHEMACHANGE, SC_ACTION_ABORT, SC_ACTION_PAUSE);
+        if (rc == SC_CONVERSION_FAILED){
             logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented");
             return 0;
         } else {
