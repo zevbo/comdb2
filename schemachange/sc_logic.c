@@ -803,11 +803,8 @@ int finalize_schema_change_thd(struct ireq *iq, tran_type *trans)
     logmsg(LOGMSG_WARN, "attempting to lock\n");
     Pthread_mutex_lock(&s->mtx);
     logmsg(LOGMSG_WARN, "locked, name is %s, and cancelled is %d\n", s->tablename, s->cancelled);
-    if (s->cancelled){
-        logmsg(LOGMSG_WARN, "cancelled sc somehow got to finalize_schema_change_thd\n");
-        return 0;
-    }
     enum thrtype oldtype = prepare_sc_thread(s);
+    logmsg(LOGMSG_WARN, "sc thread prepared\n");
     int rc = SC_OK;
 
     if (gbl_test_scindex_deadlock) {
@@ -816,8 +813,12 @@ int finalize_schema_change_thd(struct ireq *iq, tran_type *trans)
         logmsg(LOGMSG_INFO, "%s: slept 30s\n", __func__);
     }
 
+    logmsg(LOGMSG_WARN, "finished gbl_test_scindex_deadlock\n");
+
     /* finalize_x_sp are placeholders */
-    if (s->addsp)
+    if (s->cancelled)
+        rc = 0;
+    else if (s->addsp)
         rc = finalize_add_sp(s);
     else if (s->delsp)
         rc = finalize_del_sp(s);

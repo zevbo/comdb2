@@ -355,13 +355,7 @@ static void check_for_idx_rename(struct dbtable *newdb, struct dbtable *olddb)
     }
 }
 
-
-// zTODO: I'm re-writing the creation of schema change objects like freaking everywhere
-static struct schema_change_type *comdb2_alter_audited_sc(struct schema_change_type *pre, struct schema *s, char *audit){
-
-    struct schema_change_type *sc = new_schemachange_type();
-    
-    // Kill me
+void copy_alter_sc(struct schema_change_type *sc, struct schema_change_type *pre){
     sc->alteronly = pre->alteronly;
     sc->nothrevent = pre->nothrevent;
     sc->live = pre->live;
@@ -379,6 +373,16 @@ static struct schema_change_type *comdb2_alter_audited_sc(struct schema_change_t
     sc->convert_sleep = pre->convert_sleep;
     sc->create_version_schema = pre->create_version_schema;
     sc->nothrevent = pre->nothrevent;
+}
+
+
+// zTODO: I'm re-writing the creation of schema change objects like freaking everywhere
+static struct schema_change_type *comdb2_alter_audited_sc(struct schema_change_type *pre, struct schema *s, char *audit){
+
+    struct schema_change_type *sc = new_schemachange_type();
+    
+    // Kill me
+    copy_alter_sc(sc, pre);
     logmsg(LOGMSG_WARN, "nothrevent: %d\n", sc->nothrevent);
     
     sc->is_monitered_alter = 1;
@@ -751,15 +755,17 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
             logmsg(LOGMSG_WARN, "Finished do_alter_table_normal with rc %d [%d, %d, %d]\n", rc, CDB2ERR_SCHEMACHANGE, SC_ACTION_ABORT, SC_ACTION_PAUSE);
         if (rc == SC_CONVERSION_FAILED){
             logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented");
+            // zTODO: are cleaning up this schema change object
+            struct schema_change_type *sc = new_schemachange_type();
+            copy_alter_sc(sc, s);
             s->cancelled = 1;
-            // zTODO: is this cool?
-            Pthread_mutex_unlock(&s->mtx);
             return SC_COMMIT_PENDING;
         } else {
             return rc;
         }
     } else {
         logmsg(LOGMSG_WARN, "starting regular alter\n");
+        logmsg(LOGMSG_WARN, "notes: %s\n", s->newcsc2);
         return do_alter_table_normal(iq, s, tran);
     }
 }
