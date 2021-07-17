@@ -5823,11 +5823,10 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         strcmp(sc->original_master_node, gbl_myhostname))
         sc->resume = 1;
 
-
+    // zTODO: put this in while
+    sc = populate_sc_chain(sc);
     while(sc){
-        sc = populate_sc_chain(sc);
         //struct schema_change_type *next_sc = sc->sc_chain_next;
-        logmsg(LOGMSG_WARN, "tablename: %s\n", sc->tablename);
         iq->sc = sc;
         sc->iq = iq;
         sc->is_osql = 1;
@@ -5846,7 +5845,7 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
                 sc->preempted == SC_ACTION_RESUME ||
                 sc->alteronly == SC_ALTER_PENDING) {
                 iq->sc = NULL;
-            } else {
+            } else if (!sc->cancelled) {
                 iq->sc->sc_next = iq->sc_pending;
                 iq->sc_pending = iq->sc;
                 iq->osql_flags |= OSQL_FLAGS_SCDONE;
@@ -5863,7 +5862,10 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         // old_sc->sc_chain_next = NULL;
     }
     iq->usedb = NULL;
-    if (!rc || rc == SC_ASYNC || rc == SC_COMMIT_PENDING) return 0;
+    if (!rc || rc == SC_ASYNC || rc == SC_COMMIT_PENDING) {
+        logmsg(LOGMSG_WARN, "retuning out of osql_process_schemachange\n");
+        return 0;
+    }
     
 
     return ERR_SC;

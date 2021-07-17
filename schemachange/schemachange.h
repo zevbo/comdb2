@@ -236,6 +236,7 @@ struct schema_change_type {
     // zTODO: this makes me want to end my entire existence
     struct schema *(*create_version_schema)(char *csc2, int version,
                                      struct dbenv *dbenv);
+    int cancelled;
 };
 
 struct ireq;

@@ -600,11 +600,8 @@ static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
         abort();
     }
 
-    logmsg(LOGMSG_WARN, "attempting to lock\n");
     Pthread_mutex_lock(&s->mtx);
-    logmsg(LOGMSG_WARN, "1 locked\n");
     Pthread_mutex_lock(&s->mtxStart);
-    logmsg(LOGMSG_WARN, "locked\n");
     s->started = 1;
     Pthread_cond_signal(&s->condStart);
     Pthread_mutex_unlock(&s->mtxStart);
@@ -728,7 +725,6 @@ downgraded:
         }
         if (!no_reset)
             reset_sc_thread(oldtype, s);
-        logmsg(LOGMSG_WARN, "unlocking mtx\n");
         Pthread_mutex_unlock(&s->mtx);
         return 0;
     } else if (s->resume == SC_NEW_MASTER_RESUME || rc == SC_COMMIT_PENDING ||
@@ -736,13 +732,11 @@ downgraded:
                (!s->nothrevent && !s->finalize)) {
         if (!no_reset)
             reset_sc_thread(oldtype, s);
-        logmsg(LOGMSG_WARN, "unlocking mtx\n");
         Pthread_mutex_unlock(&s->mtx);
         return rc;
     }
     if (!no_reset)
         reset_sc_thread(oldtype, s);
-    logmsg(LOGMSG_WARN, "unlocking mtx\n");
     Pthread_mutex_unlock(&s->mtx);
     if (!s->is_osql) {
         if (rc == SC_MASTER_DOWNGRADE) {
@@ -803,9 +797,16 @@ int do_schema_change_locked(struct schema_change_type *s)
 
 int finalize_schema_change_thd(struct ireq *iq, tran_type *trans)
 {
+    logmsg(LOGMSG_WARN, "got to finalize schema change\n");
     if (iq == NULL || iq->sc == NULL) abort();
     struct schema_change_type *s = iq->sc;
+    logmsg(LOGMSG_WARN, "attempting to lock\n");
     Pthread_mutex_lock(&s->mtx);
+    logmsg(LOGMSG_WARN, "locked, name is %s, and cancelled is %d\n", s->tablename, s->cancelled);
+    if (s->cancelled){
+        logmsg(LOGMSG_WARN, "cancelled sc somehow got to finalize_schema_change_thd\n");
+        return 0;
+    }
     enum thrtype oldtype = prepare_sc_thread(s);
     int rc = SC_OK;
 
@@ -848,7 +849,7 @@ int finalize_schema_change_thd(struct ireq *iq, tran_type *trans)
         rc = do_finalize(finalize_add_view, iq, s, trans, user_view);
     else if (s->drop_view)
         rc = do_finalize(finalize_drop_view, iq, s, trans, user_view);
-
+    logmsg(LOGMSG_WARN, "finished finalize body\n");
     reset_sc_thread(oldtype, s);
     Pthread_mutex_unlock(&s->mtx);
 

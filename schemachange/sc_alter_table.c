@@ -400,11 +400,9 @@ void populate_alter_chain(struct dbtable *db, struct schema_change_type *sc, tra
         logmsg(LOGMSG_WARN, "num audits: %d\n", num_audits);
         logmsg(LOGMSG_WARN, "dbenv: %d\n", db->dbenv->dbnum);
         struct schema *s = sc->create_version_schema(sc->newcsc2, -1, db->dbenv);
-        logmsg(LOGMSG_WARN, "got schema\n");
         for(int i = 0; i < num_audits; i++){
             add_next_to_chain(sc, comdb2_alter_audited_sc(sc, s, audits[i]));
         }
-        logmsg(LOGMSG_WARN, "done with this\n");
     }
 }
 
@@ -431,7 +429,7 @@ int do_alter_table_normal(struct ireq *iq, struct schema_change_type *s,
     gbl_sc_last_writer_time = 0;
 
     db = get_dbtable_by_name(s->tablename);
-    // populate_alter_chain(db, s, tran);
+    populate_alter_chain(db, s, tran);
     if (db == NULL) {
         sc_errf(s, "Table not found:%s\n", s->tablename);
         return SC_TABLE_DOESNOT_EXIST;
@@ -749,14 +747,14 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
                    tran_type *tran){
     if (s->is_monitered_alter){
         logmsg(LOGMSG_WARN, "starting monitered alter\n");
-        // struct dbtable *subscribed_db = get_dbtable_by_name(s->newcsc2);
-        // s->newcsc2 = get_audit_schema(subscribed_db);
-        // logmsg(LOGMSG_WARN, "Newcsc2 is: %s\n", s->newcsc2);
         int rc = do_alter_table_normal(iq, s, tran);
             logmsg(LOGMSG_WARN, "Finished do_alter_table_normal with rc %d [%d, %d, %d]\n", rc, CDB2ERR_SCHEMACHANGE, SC_ACTION_ABORT, SC_ACTION_PAUSE);
         if (rc == SC_CONVERSION_FAILED){
             logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented");
-            return 0;
+            s->cancelled = 1;
+            // zTODO: is this cool?
+            Pthread_mutex_unlock(&s->mtx);
+            return SC_COMMIT_PENDING;
         } else {
             return rc;
         }
@@ -935,7 +933,6 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
     }
 
     live_sc_off(db);
-
     /* artificial sleep to aid testing */
     if (s->commit_sleep) {
         sc_printf(s, "artificially sleeping for %d...\n", s->commit_sleep);
@@ -986,37 +983,7 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
             db->tableversion = table_version_select(db, transac);
         sc_printf(s, "Reusing version %llu for same schema\n", db->tableversion);
     }
-
-    /*
-    char **audits;
-    int num_audits;
-    bdb_get_audited_sp_tran(transac, s->tablename, &audits, &num_audits);
-    struct schema_change_type **alter_audit_scs = malloc(num_audits * sizeof(struct schema_change_type *));
-
-    for(int i = 0; i < num_audits; i++){
-        logmsg(LOGMSG_WARN, "on alter %d\n", i);
-        char *audit = audits[i];
-        struct schema_change_type *sc = comdb2_alter_audited_sc(s->tablename, audit);
-        alter_audit_scs[i] = sc;
-        // zTODO: is this whole change the iq thing okay?
-        sc->iq = iq;
-        iq->sc = sc;
-        // zTODO: can I just call do_alter_table instead of do_ddl (or do_finalize)?
-        logmsg(LOGMSG_WARN, "doing an alter with table %s\n", sc->tablename);
-        int rc = do_alter_table(iq, sc, transac);
-        logmsg(LOGMSG_WARN, "finished an alter\n");
     
-        if (rc){
-            logmsg(LOGMSG_WARN, "zTODO: Add functionality so in failure of alter, so it adds a new table");
-        }
-
-        iq->sc = s;
-    }
-    for(int i = 0; i < num_audits; i++){
-        finalize_alter_table(iq, alter_audit_scs[i], transac);
-        // zTODO: Do something on failure
-    }
-    */
 
     set_odh_options_tran(db, transac);
 
