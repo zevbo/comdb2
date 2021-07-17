@@ -756,16 +756,23 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
         if (rc == SC_CONVERSION_FAILED){
             logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented");
             // zTODO: are cleaning up this schema change object
-            struct schema_change_type *sc = new_schemachange_type();
-            copy_alter_sc(sc, s);
             s->cancelled = 1;
+            struct schema_change_type *sc = new_schemachange_type();
+            sc->nothrevent = 1;
+            sc->live = 1;
+            // zTODO: is this the correct one?
+            sc->rename = SC_RENAME_LEGACY;
+            strcpy(sc->tablename, s->tablename);
+            char *prefix = "old";
+            strcpy(sc->newtable, prefix);
+            strcat(sc->newtable, sc->tablename);
+            s->sc_chain_next = sc;
             return SC_COMMIT_PENDING;
         } else {
             return rc;
         }
     } else {
         logmsg(LOGMSG_WARN, "starting regular alter\n");
-        logmsg(LOGMSG_WARN, "notes: %s\n", s->newcsc2);
         return do_alter_table_normal(iq, s, tran);
     }
 }

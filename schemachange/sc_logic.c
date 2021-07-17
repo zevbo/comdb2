@@ -214,7 +214,7 @@ static void free_sc(struct schema_change_type *s)
     csc2_free_all();
 }
 
-static void stop_and_free_sc(struct ireq *iq, int rc,
+void stop_and_free_sc(struct ireq *iq, int rc,
                              struct schema_change_type *s, int do_free)
 {
     if (!s->partialuprecs) {

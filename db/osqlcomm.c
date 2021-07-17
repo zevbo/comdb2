@@ -55,6 +55,7 @@
 #include "osqlscchain.h"
 #include "sc_global.h"
 #include "osqlscchain.h"
+#include <sc_logic.h>
 
 #define MAX_CLUSTER 16
 
@@ -5836,10 +5837,12 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         sc->tran = NULL;
         if (sc->db)
             iq->usedb = sc->db;
-
+        
+        struct schema_change_type *sc_chain_next = NULL;
         if (!timepart_is_timepart(sc->tablename, 1)) {
             logmsg(LOGMSG_WARN, "doing schema change tran\n");
             rc = start_schema_change_tran(iq, NULL);
+            sc_chain_next = sc->sc_chain_next;
             logmsg(LOGMSG_WARN, "finished schema change tran\n");
             if ((rc != SC_ASYNC && rc != SC_COMMIT_PENDING) ||
                 sc->preempted == SC_ACTION_RESUME ||
@@ -5849,6 +5852,9 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
                 iq->sc->sc_next = iq->sc_pending;
                 iq->sc_pending = iq->sc;
                 iq->osql_flags |= OSQL_FLAGS_SCDONE;
+            } else {
+                stop_and_free_sc(iq, 0, sc, 1);
+                iq->sc = 0;
             }
         } else {
             timepart_sc_arg_t arg = {0};
@@ -5857,8 +5863,8 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
             rc = timepart_foreach_shard(sc->tablename,
                                         start_schema_change_tran_wrapper, &arg, -1);
         }
-        logmsg(LOGMSG_WARN, "n4 with p %p\n", sc->sc_chain_next);
-        sc = sc->sc_chain_next;
+        logmsg(LOGMSG_WARN, "n4 with p %p\n", sc_chain_next);
+        sc = sc_chain_next;
         // old_sc->sc_chain_next = NULL;
     }
     iq->usedb = NULL;
