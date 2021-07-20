@@ -410,6 +410,7 @@ int perform_trigger_update_int(struct schema_change_type *sc)
 
     if (same_tran) {
         rc = trans_start_logical_sc(&iq, &ltran);
+        logmsg(LOGMSG_WARN, "in same tran with rc %d\n", rc);
         if (rc) {
             sbuf2printf(sb, "!Error %d creating logical transaction for %s.\n",
                     rc, sc->tablename);
@@ -418,6 +419,7 @@ int perform_trigger_update_int(struct schema_change_type *sc)
         }
         bdb_ltran_get_schema_lock(ltran);
         rc = get_physical_transaction(thedb->bdb_env, ltran, &tran, 0);
+        logmsg(LOGMSG_WARN, "physical tran rc %d\n", rc);
         if (rc != 0 || tran == NULL) {
             sbuf2printf(sb, "!Error %d creating physical transaction for %s.\n",
                     rc, sc->tablename);
@@ -426,6 +428,7 @@ int perform_trigger_update_int(struct schema_change_type *sc)
         }
     } else {
         rc = trans_start(&iq, NULL, (void *)&tran);
+        logmsg(LOGMSG_WARN, "in diff tran with rc %d\n", rc);
         if (rc) {
             sbuf2printf(sb, "!Error %d creating a transaction for %s.\n", rc,
                     sc->tablename);
@@ -516,6 +519,8 @@ int perform_trigger_update_int(struct schema_change_type *sc)
             goto done;
         }
     }
+    
+    logmsg(LOGMSG_WARN, "check\n");
 
     /* For addding, there's no queue and no consumer/procedure, etc., so create
      * those first.  For
@@ -786,6 +791,18 @@ done:
     // depending on where it is being executed from.
 }
 
+/* takes a table name and continues trying integers starting with 2 at the end until it finds a table that does not yet exist */
+void make_name_available(char *prefix){
+    int postfix_start = strlen(prefix);
+    for(int i = 2; get_dbtable_by_name(prefix); i++){
+        char *postfix_str = malloc((ceil(log(i)) + 1) * sizeof(char));
+        sprintf(postfix_str, "$%d", i);
+        strcpy(prefix + postfix_start, postfix_str);
+        free(postfix_str);
+    }    
+}
+
+
 char *get_audit_schema(struct schema *schema){
 	int len = 0;
 	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
@@ -849,16 +866,51 @@ char *get_audit_schema(struct schema *schema){
 	return audit_schema;
 }
 
+
+struct schema_change_type *create_audit_table_sc(char *name){
+	struct schema_change_type *sc = new_schemachange_type();
+    sc->sc_chain_next = NULL;
+	// Guesses
+    sc->onstack = 1;
+	sc->type = DBTYPE_TAGGED_TABLE;
+	sc->scanmode = gbl_default_sc_scanmode;
+    sc->live = 1;
+	// Maybe need use_plan?
+	sc->addonly = 1;
+
+	char *prefix = "$audit_";
+	strcpy(sc->tablename, prefix);
+	strcat(sc->tablename, name);
+    // zTODO: I think that get_dbtable_by_name ultimately frees name. If it doesn't we have a problem: some undefined behavior somewhere
+    // To see odd behavior, simply look at the contents of name after get_audit_schema is called
+    // It should be something like "es }" which is the ending to the audit schema in get_audit_schema
+    // Update: No longer sure the above statment is correct. Might be fine now
+	struct dbtable *db = get_dbtable_by_name(name);
+	sc->newcsc2 = get_audit_schema(db->schema);
+
+    if (db->instant_schema_change) sc->instant_sc = 1;
+
+	// What is ODH? This is just copied from timepart
+	if (db->odh) sc->headers = 1;
+
+    make_name_available(sc->tablename);
+
+	return sc;
+}
+
 int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans)
 {
     logmsg(LOGMSG_WARN, "is trigger: %d\n", sc->is_trigger);
     if (sc->is_trigger == AUDITED_TRIGGER){
-        bdb_set_audited_sp_tran(trans, sc->trigger_table, sc->audit_table);
+        bdb_set_audited_sp_tran(trans, sc->trigger_table, sc->audit_table, TABLE_TO_AUDITS);
+        bdb_set_audited_sp_tran(trans, sc->audit_table, sc->trigger_table, AUDIT_TO_TABLE);
+        bdb_set_audited_sp_tran(trans, sc->tablename, sc->audit_table, TRIGGER_TO_AUDIT);
+        bdb_set_audited_sp_tran(trans, sc->audit_table, sc->tablename, AUDIT_TO_TRIGGER);
         logmsg(LOGMSG_WARN, "in theory set\n");
         char **audits;
         int num_audits;
-        bdb_get_audited_sp_tran(trans, sc->tablename, &audits, &num_audits);
+        bdb_get_audited_sp_tran(trans, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
         logmsg(LOGMSG_WARN, "num audits for %s: %d\n", sc->tablename, num_audits);
     }
     wrlock_schema_lk();
@@ -870,8 +922,6 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     return rc;
 }
 
-// zTODO: Is it okay to have these trigger functions in this file?
-// zTODO: break this up into multiple functions? maybe...
 // TODO -- what should this do? maybe log_scdone should be here
 int finalize_trigger(struct schema_change_type *s, tran_type *trans)
 {

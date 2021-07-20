@@ -648,7 +648,6 @@ static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
         rc = do_ddl(do_add_table, finalize_add_table, iq, s, trans, add);
     }
     else if (s->rename)
-        // zTODO: apply to trigger?
         if (s->rename == SC_RENAME_LEGACY)
             rc = do_ddl(do_rename_table, finalize_rename_table, iq, s, trans,
                         rename_table);
@@ -658,7 +657,6 @@ static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
     else if (s->fulluprecs || s->partialuprecs)
         rc = do_upgrade_table(s);
     else if (s->type == DBTYPE_TAGGED_TABLE)
-        // zTODO: apply to trigger?
         rc = do_ddl(do_alter_table, finalize_alter_table, iq, s, trans, alter);
     else if (s->type == DBTYPE_QUEUE)
         rc = do_alter_queues(s);

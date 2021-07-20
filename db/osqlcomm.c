@@ -5864,7 +5864,15 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
                                         start_schema_change_tran_wrapper, &arg, -1);
         }
         logmsg(LOGMSG_WARN, "n4 with p %p\n", sc_chain_next);
-        sc = sc_chain_next;
+        if (rc && rc != SC_ASYNC && rc != SC_COMMIT_PENDING) {
+            while(sc->sc_chain_next){
+                stop_and_free_sc(iq, 0, sc->sc_chain_next, 1);
+                sc = sc->sc_chain_next;
+            }
+            return ERR_SC;
+        } else {
+            sc = sc_chain_next;
+        }
         // old_sc->sc_chain_next = NULL;
     }
     iq->usedb = NULL;

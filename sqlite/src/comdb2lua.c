@@ -180,7 +180,6 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, int is_trigger, int seq, Tok
 		return;
 	}
 
-	// zTODO: we should still do this if it is not audited
 	if (is_trigger != AUDITED_TRIGGER && comdb2LocateSP(parse, spname) != 0) {
 		return;
 	}

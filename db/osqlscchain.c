@@ -8,48 +8,6 @@
 // Errors I have gotten here:
 // 1. Two schema changes with the same tablename; ie: don't use reserved resources
 
-/* takes a table name and continues trying integers starting with 2 at the end until it finds a table that does not yet exist */
-void make_name_available(char *prefix){
-    int postfix_start = strlen(prefix);
-    for(int i = 2; get_dbtable_by_name(prefix); i++){
-        char *postfix_str = malloc((ceil(log(i)) + 1) * sizeof(char));
-        sprintf(postfix_str, "$%d", i);
-        strcpy(prefix + postfix_start, postfix_str);
-        free(postfix_str);
-    }    
-}
-
-static struct schema_change_type *create_audit_table_sc(char *name){
-	struct schema_change_type *sc = new_schemachange_type();
-    sc->sc_chain_next = NULL;
-	// Guesses
-    sc->onstack = 1;
-	sc->type = DBTYPE_TAGGED_TABLE;
-	sc->scanmode = gbl_default_sc_scanmode;
-    sc->live = 1;
-	// Maybe need use_plan?
-	sc->addonly = 1;
-
-	char *prefix = "$audit_";
-	strcpy(sc->tablename, prefix);
-	strcat(sc->tablename, name);
-    // zTODO: I think that get_dbtable_by_name ultimately frees name. If it doesn't we have a problem: some undefined behavior somewhere
-    // To see odd behavior, simply look at the contents of name after get_audit_schema is called
-    // It should be something like "es }" which is the ending to the audit schema in get_audit_schema
-    // Update: No longer sure the above statment is correct. Might be fine now
-	struct dbtable *db = get_dbtable_by_name(name);
-	sc->newcsc2 = get_audit_schema(db->schema);
-
-    if (db->instant_schema_change) sc->instant_sc = 1;
-
-	// What is ODH? This is just copied from timepart
-	if (db->odh) sc->headers = 1;
-
-    make_name_available(sc->tablename);
-
-	return sc;
-}
-
 // zTODO: make sure that this format won't change up on us
 static char *get_trigger_table_name(char *newcsc2){
     newcsc2 += strlen("table ");
@@ -101,7 +59,6 @@ static struct schema_change_type *gen_audited_lua(char *table_name, char *spname
     strcpy(sc->tablename, spname);
     sc->addsp = 1;
     sc->newcsc2 = code;
-    // zTODO: sc_chain_next should automatically be NULL
     strcpy(sc->fname, "built-in audit");
 	return sc;
 }
@@ -146,7 +103,7 @@ static struct schema_change_type *populate_audit_alters(struct schema_change_typ
 
     logmsg(LOGMSG_WARN, "new csc2: %s\n", sc->newcsc2);
 
-    bdb_get_audited_sp_tran(sc->tran, sc->tablename, &audits, &num_audits);
+    bdb_get_audited_sp_tran(sc->tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
     if(num_audits > 0){sc->nothrevent = 1;}
     /*
     for(int i = 0; i < num_audits; i++){

@@ -120,6 +120,13 @@ enum {
     SQL_DBG_ALL = INT_MAX  /* enable all debug options */
 };
 
+enum llmeta_audit_key {
+    TABLE_TO_AUDITS = 54,
+    AUDIT_TO_TABLE = 55,
+    TRIGGER_TO_AUDIT = 56,
+    AUDIT_TO_TRIGGER = 57
+};
+
 typedef struct {
     int opcode;
     int ixnum;
@@ -2209,10 +2216,11 @@ int bdb_get_default_versioned_sps(char ***names, int *num);
 int bdb_get_versioned_sps(char ***names, int *num);
 int bdb_get_versioned_sps_tran(tran_type *tran, char ***names, int *num);
 
-int bdb_get_audited_sp_tran(tran_type *tran, char *tablename, char ***audits, int *num);
-int bdb_set_audited_sp_tran(tran_type *tran, char *sub_table, char *audit_table);
-int bdb_delete_audited_sp_tran(tran_type *tran, char *sub_table);
+int bdb_get_audited_sp_tran(tran_type *tran, char *tablename, char ***audits, int *num, enum llmeta_audit_key llmeta_audit_key);
+int bdb_set_audited_sp_tran(tran_type *tran, char *sub_table, char *audit_table, enum llmeta_audit_key llmeta_audit_key);
+int bdb_delete_audited_sp_tran(tran_type *tran, char *sub_table, enum llmeta_audit_key llmeta_audit_key);
 int bdb_delete_single_audited_sp_tran(tran_type *tran, char *sub_table, char *audit_table);
+int bdb_delete_audit_table_sp_tran(tran_type *tran, char *audit, int delete_single);
 
 int bdb_user_exists(tran_type *tran, char *user);
 int bdb_create_dba_user(bdb_state_type *bdb_state);

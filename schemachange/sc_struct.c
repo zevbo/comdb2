@@ -550,7 +550,6 @@ void *buf_get_schemachange(struct schema_change_type *s, void *p_buf,
                                p_buf, p_buf_end);
     p_buf = (uint8_t *)buf_get(&s->qdb_file_ver, sizeof(s->qdb_file_ver),
                                p_buf, p_buf_end);
-                               // zTODO: Do I need this?
     p_buf = (uint8_t *)buf_get(&s->nCol, sizeof(s->nCol), p_buf,
                                p_buf_end);
 

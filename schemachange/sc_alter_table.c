@@ -356,6 +356,7 @@ static void check_for_idx_rename(struct dbtable *newdb, struct dbtable *olddb)
 }
 
 void copy_alter_sc(struct schema_change_type *sc, struct schema_change_type *pre){
+    // zTODO: Kill me
     sc->alteronly = pre->alteronly;
     sc->nothrevent = pre->nothrevent;
     sc->live = pre->live;
@@ -376,12 +377,10 @@ void copy_alter_sc(struct schema_change_type *sc, struct schema_change_type *pre
 }
 
 
-// zTODO: I'm re-writing the creation of schema change objects like freaking everywhere
 static struct schema_change_type *comdb2_alter_audited_sc(struct schema_change_type *pre, struct schema *s, char *audit){
 
     struct schema_change_type *sc = new_schemachange_type();
     
-    // Kill me
     copy_alter_sc(sc, pre);
     logmsg(LOGMSG_WARN, "nothrevent: %d\n", sc->nothrevent);
     
@@ -400,7 +399,7 @@ void populate_alter_chain(struct dbtable *db, struct schema_change_type *sc, tra
         int num_audits;
         // zTODO: Is version important here?
         // zTODO: is the dbenv correct?
-        bdb_get_audited_sp_tran(tran, sc->tablename, &audits, &num_audits);
+        bdb_get_audited_sp_tran(tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
         logmsg(LOGMSG_WARN, "num audits: %d\n", num_audits);
         logmsg(LOGMSG_WARN, "dbenv: %d\n", db->dbenv->dbnum);
         struct schema *s = sc->create_version_schema(sc->newcsc2, -1, db->dbenv);
@@ -754,19 +753,33 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
         int rc = do_alter_table_normal(iq, s, tran);
             logmsg(LOGMSG_WARN, "Finished do_alter_table_normal with rc %d [%d, %d, %d]\n", rc, CDB2ERR_SCHEMACHANGE, SC_ACTION_ABORT, SC_ACTION_PAUSE);
         if (rc == SC_CONVERSION_FAILED){
-            logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented");
+            logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented\n");
             // zTODO: are cleaning up this schema change object
             s->cancelled = 1;
-            struct schema_change_type *sc = new_schemachange_type();
-            sc->nothrevent = 1;
-            sc->live = 1;
-            // zTODO: is this the correct one?
-            sc->rename = SC_RENAME_LEGACY;
-            strcpy(sc->tablename, s->tablename);
+
+            struct schema_change_type *sc_rename = new_schemachange_type();
+            sc_rename->nothrevent = 1;
+            sc_rename->live = 1;
+            sc_rename->rename = SC_RENAME_LEGACY;
+            strcpy(sc_rename->tablename, s->tablename);
             char *prefix = "old";
-            strcpy(sc->newtable, prefix);
-            strcat(sc->newtable, sc->tablename);
-            s->sc_chain_next = sc;
+            strcpy(sc_rename->newtable, prefix);
+            strcat(sc_rename->newtable, s->tablename);
+
+            char **triggers;
+            int num_triggers;
+            bdb_get_audited_sp_tran(tran, s->tablename, &triggers, &num_triggers, AUDIT_TO_TRIGGER);
+            assert(num_triggers == 1);
+            char *trigger = triggers[0] + 3;
+            logmsg(LOGMSG_WARN, "trigger is: %s\n", trigger);
+            struct schema_change_type *sc_delete_trigger = new_schemachange_type();
+            strcpy(sc_delete_trigger->tablename, trigger);
+            sc_delete_trigger->is_trigger = 1;
+	        sc_delete_trigger->drop_table = 1;
+
+            sc_rename->sc_chain_next = sc_delete_trigger;
+            s->sc_chain_next = sc_rename;
+
             return SC_COMMIT_PENDING;
         } else {
             return rc;

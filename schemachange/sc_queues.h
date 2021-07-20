@@ -47,4 +47,6 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans);
 int finalize_trigger(struct schema_change_type *s, tran_type *trans);
 char *get_audit_schema(struct schema *schema);
+struct schema_change_type *create_audit_table_sc(char *name);
+void make_name_available(char *prefix);
 #endif
