@@ -372,7 +372,7 @@ void copy_alter_sc(struct schema_change_type *sc, struct schema_change_type *pre
     sc->live = pre->live;
     sc->commit_sleep = pre->commit_sleep;
     sc->convert_sleep = pre->convert_sleep;
-    sc->create_version_schema = pre->create_version_schema;
+    // sc->create_version_schema = pre->create_version_schema;
     sc->nothrevent = pre->nothrevent;
 }
 
@@ -392,6 +392,72 @@ static struct schema_change_type *comdb2_alter_audited_sc(struct schema_change_t
     return sc;
 }
 
+struct schema *create_version_schema(char *csc2, int version,
+                                     struct dbenv *dbenv)
+{
+    dbtable *ver_db;
+    char *tag;
+    int rc;
+
+    Pthread_mutex_lock(&csc2_subsystem_mtx);
+    dyns_init_globals();
+    rc = dyns_load_schema_string(csc2, dbenv->envname, gbl_ver_temp_table);
+    if (rc) {
+        logmsg(LOGMSG_ERROR, "dyns_load_schema_string failed %s:%d\n", __FILE__,
+                __LINE__);
+        goto err;
+    }
+
+    ver_db = newdb_from_schema(dbenv, gbl_ver_temp_table, NULL, 0, 0, 0);
+
+    // Bottom Bound
+    if (ver_db == NULL) {
+        logmsg(LOGMSG_ERROR, "newdb_from_schema failed %s:%d\n", __FILE__, __LINE__);
+        goto err;
+    }
+
+    rc = add_cmacc_stmt_no_side_effects(ver_db, 0);
+    if (rc) {
+        logmsg(LOGMSG_ERROR, "add_cmacc_stmt failed %s:%d\n", __FILE__, __LINE__);
+        goto err;
+    }
+
+    struct schema *s = find_tag_schema(gbl_ver_temp_table, ".ONDISK");
+    if (s == NULL) {
+        logmsg(LOGMSG_ERROR, "find_tag_schema failed %s:%d\n", __FILE__, __LINE__);
+        goto err;
+    }
+
+    tag = malloc(gbl_ondisk_ver_len);
+    if (tag == NULL) {
+        logmsg(LOGMSG_ERROR, "malloc failed %s:%d\n", __FILE__, __LINE__);
+        goto err;
+    }
+    dyns_cleanup_globals();
+    Pthread_mutex_unlock(&csc2_subsystem_mtx);
+
+    sprintf(tag, gbl_ondisk_ver_fmt, version);
+    struct schema *ver_schema = clone_schema(s);
+    free(ver_schema->tag);
+    ver_schema->tag = tag;
+
+    /* get rid of temp schema */
+    del_tag_schema(ver_db->tablename, s->tag);
+    freeschema(s);
+
+    /* get rid of temp table */
+    delete_schema(ver_db->tablename);
+    freedb(ver_db);
+
+    return ver_schema;
+
+err:
+    dyns_cleanup_globals();
+    Pthread_mutex_unlock(&csc2_subsystem_mtx);
+    return NULL;
+}
+
+
 void populate_alter_chain(struct dbtable *db, struct schema_change_type *sc, tran_type *tran){
     if (sc->newcsc2){
         logmsg(LOGMSG_WARN, "doing populate alter chain on newcsc2: %s\n", sc->newcsc2);
@@ -402,7 +468,7 @@ void populate_alter_chain(struct dbtable *db, struct schema_change_type *sc, tra
         bdb_get_audited_sp_tran(tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
         logmsg(LOGMSG_WARN, "num audits: %d\n", num_audits);
         logmsg(LOGMSG_WARN, "dbenv: %d\n", db->dbenv->dbnum);
-        struct schema *s = sc->create_version_schema(sc->newcsc2, -1, db->dbenv);
+        struct schema *s = create_version_schema(sc->newcsc2, -1, db->dbenv);
         for(int i = 0; i < num_audits; i++){
             add_next_to_chain(sc, comdb2_alter_audited_sc(sc, s, audits[i]));
         }
@@ -766,11 +832,12 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
             strcpy(sc_rename->newtable, prefix);
             strcat(sc_rename->newtable, s->tablename);
 
+            
             char **triggers;
             int num_triggers;
             bdb_get_audited_sp_tran(tran, s->tablename, &triggers, &num_triggers, AUDIT_TO_TRIGGER);
             assert(num_triggers == 1);
-            char *trigger = triggers[0] + 3;
+            char *trigger = triggers[0];
             logmsg(LOGMSG_WARN, "trigger is: %s\n", trigger);
             struct schema_change_type *sc_delete_trigger = new_schemachange_type();
             strcpy(sc_delete_trigger->tablename, trigger);
@@ -778,6 +845,7 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
 	        sc_delete_trigger->drop_table = 1;
 
             sc_rename->sc_chain_next = sc_delete_trigger;
+            
             s->sc_chain_next = sc_rename;
 
             return SC_COMMIT_PENDING;
@@ -957,8 +1025,10 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
         }
         create_sqlite_master();
     }
+    logmsg(LOGMSG_WARN, "CHECK0\n");
 
     live_sc_off(db);
+    logmsg(LOGMSG_WARN, "CHECK1\n");
     /* artificial sleep to aid testing */
     if (s->commit_sleep) {
         sc_printf(s, "artificially sleeping for %d...\n", s->commit_sleep);
@@ -968,6 +1038,7 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
         sc_printf(s, "...slept for %d\n", s->commit_sleep);
     }
 
+    logmsg(LOGMSG_WARN, "CHECK2\n");
     if (!gbl_create_mode) {
         logmsg(LOGMSG_INFO, "Table %s is at version: %d\n", newdb->tablename,
                newdb->schema_version);
@@ -975,6 +1046,7 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
 
     llmeta_dump_mapping_table_tran(transac, thedb, db->tablename, 1);
 
+    logmsg(LOGMSG_WARN, "CHECK3\n");
     sc_printf(s, "Schema change ok\n");
 
     rc = bdb_close_only_sc(old_bdb_handle, NULL, &bdberr);
@@ -987,6 +1059,7 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
     bdb_handle_reset_tran(new_bdb_handle, transac, iq->sc_close_tran);
     iq->sc_closed_files = 1;
 
+    logmsg(LOGMSG_WARN, "CHECK4\n");
     if (!s->same_schema ||
         (!s->fastinit &&
          BDB_ATTR_GET(thedb->bdb_attr, SC_DONE_SAME_TRAN) == 0)) {
@@ -1009,6 +1082,7 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
             db->tableversion = table_version_select(db, transac);
         sc_printf(s, "Reusing version %llu for same schema\n", db->tableversion);
     }
+    logmsg(LOGMSG_WARN, "CHECK5\n");
     
 
     set_odh_options_tran(db, transac);

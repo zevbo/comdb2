@@ -91,7 +91,7 @@ void copy_alter_fields(struct schema_change_type *sc, struct schema_change_type 
     sc->live = pre->live;
     sc->commit_sleep = pre->commit_sleep;
     sc->convert_sleep = pre->convert_sleep;
-    sc->create_version_schema = pre->create_version_schema;
+    // sc->create_version_schema = pre->create_version_schema;
     sc->nothrevent = pre->nothrevent;
 
 }
@@ -130,7 +130,7 @@ static struct schema_change_type *populate_audit_alters(struct schema_change_typ
 
 struct schema_change_type *populate_sc_chain(struct schema_change_type *sc){
     // zTODO: I'm putting this here cause I already want to kms b/c of it and this will remind me how bad it is
-    sc->create_version_schema = create_version_schema;
+    // sc->create_version_schema = create_version_schema;
     if (sc->is_trigger == AUDITED_TRIGGER){
         return populate_audited_trigger_chain(sc);
     } else if (sc->alteronly && sc->newcsc2) {

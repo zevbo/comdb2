@@ -898,15 +898,25 @@ struct schema_change_type *create_audit_table_sc(char *name){
 	return sc;
 }
 
+char *malloced_strcpy(char *str){
+    char *new_str = malloc(strlen(str) + 1);
+    strcpy(new_str, str);
+    return new_str;
+}
+
 int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans)
 {
     logmsg(LOGMSG_WARN, "is trigger: %d\n", sc->is_trigger);
     if (sc->is_trigger == AUDITED_TRIGGER){
-        bdb_set_audited_sp_tran(trans, sc->trigger_table, sc->audit_table, TABLE_TO_AUDITS);
-        bdb_set_audited_sp_tran(trans, sc->audit_table, sc->trigger_table, AUDIT_TO_TABLE);
-        bdb_set_audited_sp_tran(trans, sc->tablename, sc->audit_table, TRIGGER_TO_AUDIT);
-        bdb_set_audited_sp_tran(trans, sc->audit_table, sc->tablename, AUDIT_TO_TRIGGER);
+        // zTODO: these should get freed on deletion
+        char *sub_table = malloced_strcpy(sc->trigger_table);
+        char *audit_table = malloced_strcpy(sc->audit_table);
+        char *trigger = malloced_strcpy(sc->tablename);
+        bdb_set_audited_sp_tran(trans, sub_table, audit_table, TABLE_TO_AUDITS);
+        bdb_set_audited_sp_tran(trans, audit_table, sub_table, AUDIT_TO_TABLE);
+        bdb_set_audited_sp_tran(trans, trigger, audit_table, TRIGGER_TO_AUDIT);
+        bdb_set_audited_sp_tran(trans, audit_table, trigger, AUDIT_TO_TRIGGER);
         logmsg(LOGMSG_WARN, "in theory set\n");
         char **audits;
         int num_audits;
