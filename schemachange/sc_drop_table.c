@@ -62,11 +62,15 @@ int do_drop_table(struct ireq *iq, struct schema_change_type *s,
     char **audits;
     int num_audits;
     // zTODO: what happens if one of these fails? Do we lose our atomicity?
+    logmsg(LOGMSG_WARN, "-\n");
     bdb_get_audited_sp_tran(tran, s->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
     for(int i = 0; i < num_audits; i++){
+        logmsg(LOGMSG_WARN, "|\n");
         bdb_delete_audit_table_sp_tran(tran, audits[i], 0);
     }
+    logmsg(LOGMSG_WARN, "-\n");
     bdb_delete_audited_sp_tran(tran, s->tablename, TABLE_TO_AUDITS);
+    logmsg(LOGMSG_WARN, "-\n");
     bdb_delete_audit_table_sp_tran(tran, s->tablename, 1);
     /*
     if (rc) {

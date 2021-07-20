@@ -5847,6 +5847,15 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
             if ((rc != SC_ASYNC && rc != SC_COMMIT_PENDING) ||
                 sc->preempted == SC_ACTION_RESUME ||
                 sc->alteronly == SC_ALTER_PENDING) {
+                // zTODO: maybe not do this when actuon_resume or on alter_pending
+                logmsg(LOGMSG_WARN, "scrapping rest of chain due to rc of %d\n", rc);
+                while(sc->sc_chain_next){
+                    // zTODO: do I need to use free_sc instead?
+                    free_schema_change_type(sc->sc_chain_next);
+                    sc = sc->sc_chain_next;
+                }
+                sc_chain_next = NULL;
+                logmsg(LOGMSG_WARN, "retunring err_sc\n");
                 iq->sc = NULL;
             } else if (!sc->cancelled) {
                 iq->sc->sc_next = iq->sc_pending;
@@ -5854,7 +5863,7 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
                 iq->osql_flags |= OSQL_FLAGS_SCDONE;
             } else {
                 stop_and_free_sc(iq, 0, sc, 1);
-                iq->sc = 0;
+                iq->sc = NULL;
             }
         } else {
             timepart_sc_arg_t arg = {0};
@@ -5864,16 +5873,7 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
                                         start_schema_change_tran_wrapper, &arg, -1);
         }
         logmsg(LOGMSG_WARN, "n4 with p %p\n", sc_chain_next);
-        if (rc && rc != SC_ASYNC && rc != SC_COMMIT_PENDING) {
-            while(sc->sc_chain_next){
-                stop_and_free_sc(iq, 0, sc->sc_chain_next, 1);
-                sc = sc->sc_chain_next;
-            }
-            return ERR_SC;
-        } else {
-            sc = sc_chain_next;
-        }
-        // old_sc->sc_chain_next = NULL;
+        sc = sc_chain_next;
     }
     iq->usedb = NULL;
     if (!rc || rc == SC_ASYNC || rc == SC_COMMIT_PENDING) {
