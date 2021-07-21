@@ -812,13 +812,16 @@ errout:
         goto backout;                                                          \
     } while (0);
 
+int gbl_fail_on_uncarryable_alter = 0;
+
 int do_alter_table(struct ireq *iq, struct schema_change_type *s,
                    tran_type *tran){
+    logmsg(LOGMSG_WARN, "gbl_fail_on_uncarryable_alter: %d\n", gbl_fail_on_uncarryable_alter);
     if (s->is_monitered_alter){
         logmsg(LOGMSG_WARN, "starting monitered alter\n");
         int rc = do_alter_table_normal(iq, s, tran);
             logmsg(LOGMSG_WARN, "Finished do_alter_table_normal with rc %d [%d, %d, %d]\n", rc, CDB2ERR_SCHEMACHANGE, SC_ACTION_ABORT, SC_ACTION_PAUSE);
-        if (rc == SC_CONVERSION_FAILED){
+        if (rc == SC_CONVERSION_FAILED && !gbl_fail_on_uncarryable_alter){
             logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented\n");
             // zTODO: are cleaning up this schema change object
             s->cancelled = 1;
