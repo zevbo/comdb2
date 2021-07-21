@@ -5850,15 +5850,17 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
                 sc->alteronly == SC_ALTER_PENDING) {
                 // zTODO: maybe not do this when action_resume or on alter_pending
                 logmsg(LOGMSG_WARN, "scrapping rest of chain due to rc of %d\n", rc);
-                sc->sc_chain_next = NULL;
-                /*
+                
                 if (sc_chain_next){
                     stop_and_free_sc_chain(iq, 0, sc_chain_next, 1);
                 }
-                */
+
                 sc_chain_next = NULL;
                 logmsg(LOGMSG_WARN, "returning err_sc\n");
                 iq->sc = NULL;
+                if (sc->nothrevent){
+                    stop_and_free_sc(iq, 0, sc, 1);
+                }
             } else if (!sc->cancelled) {
                 iq->sc->sc_next = iq->sc_pending;
                 iq->sc_pending = iq->sc;
@@ -5882,7 +5884,6 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         logmsg(LOGMSG_WARN, "retuning out of osql_process_schemachange\n");
         return 0;
     }
-    
 
     return ERR_SC;
 }
@@ -5945,7 +5946,6 @@ int osql_process_packet(struct ireq *iq, unsigned long long rqid, uuid_t uuid,
                         int **updCols, blob_buffer_t blobs[MAXBLOBS], int step,
                         struct block_err *err, int *receivedrows)
 {
-    logmsg(LOGMSG_WARN, "got to osql process packet\n");
     const uint8_t *p_buf;
     const uint8_t *p_buf_end;
     int rc = 0;

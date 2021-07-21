@@ -498,7 +498,7 @@ int do_alter_table_normal(struct ireq *iq, struct schema_change_type *s,
     gbl_sc_last_writer_time = 0;
 
     db = get_dbtable_by_name(s->tablename);
-    //populate_alter_chain(db, s, tran);
+    populate_alter_chain(db, s, tran);
     if (db == NULL) {
         sc_errf(s, "Table not found:%s\n", s->tablename);
         return SC_TABLE_DOESNOT_EXIST;
