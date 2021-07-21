@@ -582,6 +582,7 @@ void verify_schema_change_constraint(struct ireq *iq, void *trans,
         return;
 
     Pthread_rwlock_rdlock(&usedb->sc_live_lk);
+    logmsg(LOGMSG_WARN, "locked in sc_schema\n");
 
     /* if there's no schema change in progress, nothing to verify */
     if (!usedb->sc_to)
@@ -664,6 +665,7 @@ done:
     free_blob_status_data(oldblobs);
 unlock:
     Pthread_rwlock_unlock(&usedb->sc_live_lk);
+    logmsg(LOGMSG_WARN, "unlocked in sc_schema\n");
 }
 
 /* After loading new schema file, should call this routine to see if ondisk
