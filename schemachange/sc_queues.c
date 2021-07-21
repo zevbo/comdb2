@@ -922,6 +922,14 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         int num_audits;
         bdb_get_audited_sp_tran(trans, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
         logmsg(LOGMSG_WARN, "num audits for %s: %d\n", sc->tablename, num_audits);
+    } else if (sc->drop_table){
+        char **audits;
+        int num_audits;
+        bdb_get_audited_sp_tran(trans, sc->tablename, &audits, &num_audits, TRIGGER_TO_AUDIT);
+        assert(num_audits <= 1);
+        if (num_audits == 1){
+            bdb_delete_audit_table_sp_tran(trans, audits[0], 1);
+        }
     }
     wrlock_schema_lk();
     javasp_do_procedure_wrlock(); 

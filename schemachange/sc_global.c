@@ -262,6 +262,7 @@ int sc_set_running(struct ireq *iq, struct schema_change_type *s, char *table,
                    int running, const char *host, time_t time, int replicant,
                    const char *func, int line)
 {
+    logmsg(LOGMSG_WARN, "setting RUNNING for %s to %d\n", table, running);
     sc_table_t *sctbl = NULL;
 #ifdef DEBUG_SC
     printf("%s: table %s : %d from %s:%d\n", __func__, table, running, func,

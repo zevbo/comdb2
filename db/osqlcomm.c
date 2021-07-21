@@ -5826,6 +5826,7 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
 
     // zTODO: put this in while
     sc = populate_sc_chain(sc);
+    //sc->sc_chain_next = NULL;
     while(sc){
         //struct schema_change_type *next_sc = sc->sc_chain_next;
         iq->sc = sc;
@@ -5847,15 +5848,16 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
             if ((rc != SC_ASYNC && rc != SC_COMMIT_PENDING) ||
                 sc->preempted == SC_ACTION_RESUME ||
                 sc->alteronly == SC_ALTER_PENDING) {
-                // zTODO: maybe not do this when actuon_resume or on alter_pending
+                // zTODO: maybe not do this when action_resume or on alter_pending
                 logmsg(LOGMSG_WARN, "scrapping rest of chain due to rc of %d\n", rc);
-                while(sc->sc_chain_next){
-                    // zTODO: do I need to use free_sc instead?
-                    free_schema_change_type(sc->sc_chain_next);
-                    sc = sc->sc_chain_next;
+                sc->sc_chain_next = NULL;
+                /*
+                if (sc_chain_next){
+                    stop_and_free_sc_chain(iq, 0, sc_chain_next, 1);
                 }
+                */
                 sc_chain_next = NULL;
-                logmsg(LOGMSG_WARN, "retunring err_sc\n");
+                logmsg(LOGMSG_WARN, "returning err_sc\n");
                 iq->sc = NULL;
             } else if (!sc->cancelled) {
                 iq->sc->sc_next = iq->sc_pending;
@@ -5943,6 +5945,7 @@ int osql_process_packet(struct ireq *iq, unsigned long long rqid, uuid_t uuid,
                         int **updCols, blob_buffer_t blobs[MAXBLOBS], int step,
                         struct block_err *err, int *receivedrows)
 {
+    logmsg(LOGMSG_WARN, "got to osql process packet\n");
     const uint8_t *p_buf;
     const uint8_t *p_buf_end;
     int rc = 0;
@@ -6045,6 +6048,7 @@ int osql_process_packet(struct ireq *iq, unsigned long long rqid, uuid_t uuid,
         /* Success: reset the table counters */
         iq->sc = iq->sc_pending;
         while (iq->sc != NULL) {
+            logmsg(LOGMSG_WARN, "osqlprocesspacket sc stop running\n");
             sc_set_running(iq, iq->sc, iq->sc->tablename, 0, NULL, 0, 0,
                            __func__, __LINE__);
             iq->sc = iq->sc->sc_next;

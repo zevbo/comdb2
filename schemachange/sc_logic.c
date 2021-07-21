@@ -226,10 +226,20 @@ void stop_and_free_sc(struct ireq *iq, int rc,
             sbuf2printf(s->sb, "SUCCESS\n");
         }
     }
+    logmsg(LOGMSG_WARN, "stop_and_free_sc sc stop running\n");
     sc_set_running(iq, s, s->tablename, 0, NULL, 0, 0, __func__, __LINE__);
     if (do_free) {
         free_sc(s);
     }
+}
+void stop_and_free_sc_chain(struct ireq *iq, int rc,
+                             struct schema_change_type *s, int do_free){
+    if (s->sc_chain_next){
+        stop_and_free_sc_chain(iq, rc, s->sc_chain_next, do_free);
+    }
+    iq->sc = s;
+    s->iq = iq;
+    free_sc(s);
 }
 
 static int set_original_tablename(struct schema_change_type *s)
@@ -1613,9 +1623,11 @@ int scdone_abort_cleanup(struct ireq *iq)
     int bdberr = 0;
     struct schema_change_type *s = iq->sc;
     mark_schemachange_over(s->tablename);
-    if (s->set_running)
+    if (s->set_running){
+        logmsg(LOGMSG_WARN, "abort cleanup sc stop running\n");
         sc_set_running(iq, s, s->tablename, 0, gbl_myhostname, time(NULL), 0,
                        __func__, __LINE__);
+    }
     if (s->db && s->db->handle) {
         if (s->addonly) {
             delete_temp_table(iq, s->db);

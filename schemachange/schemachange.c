@@ -372,6 +372,7 @@ int start_schema_change_tran(struct ireq *iq, tran_type *trans)
             if (arg)
                 free(arg);
             if (!s->is_osql) {
+                logmsg(LOGMSG_WARN, "schemachange sc stop running\n");
                 sc_set_running(iq, s, s->tablename, 0, gbl_myhostname,
                                time(NULL), 0, __func__, __LINE__);
                 free_schema_change_type(s);
