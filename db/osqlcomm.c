@@ -5955,7 +5955,7 @@ int osql_process_packet(struct ireq *iq, unsigned long long rqid, uuid_t uuid,
     int type;
     unsigned long long id;
     char *msg = *pmsg;
-
+    logmsg(LOGMSG_WARN, "in osql_process_packet\n");
     if (rqid == OSQL_RQID_USE_UUID) {
         osql_uuid_rpl_t rpl;
         p_buf = (const uint8_t *)msg;
