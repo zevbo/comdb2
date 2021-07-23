@@ -9438,7 +9438,6 @@ int bdb_get_audited_sp_tran(tran_type *tran, char *tablename, char ***audits, in
 }
 
 int bdb_set_audited_sp_tran(tran_type *tran, char *sub_table, char *audit_table){
-    // zTODO: next 3 lines are repeated in next funciton. Fix
     struct audit_table_key get_key = create_audit_table_key(sub_table);
     char k[LLMETA_IXLEN] = {0};
     memcpy(k, &get_key, sizeof(get_key));

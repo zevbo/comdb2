@@ -374,8 +374,6 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     return rc;
 }
 
-// zTODO: Is it okay to have these trigger functions in this file?
-// zTODO: break this up into multiple functions? maybe...
 // TODO -- what should this do? maybe log_scdone should be here
 int finalize_trigger(struct schema_change_type *s, tran_type *trans)
 {

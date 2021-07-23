@@ -85,10 +85,7 @@ struct schema_change_type *create_audit_table_sc(char *name){
 	char *prefix = "$audit_";
 	strcpy(sc->tablename, prefix);
 	strcat(sc->tablename, name);
-    // zTODO: I think that get_dbtable_by_name ultimately frees name. If it doesn't we have a problem: some undefined behavior somewhere
-    // To see odd behavior, simply look at the contents of name after get_audit_schema is called
-    // It should be something like "es }" which is the ending to the audit schema in get_audit_schema
-    // Update: No longer sure the above statment is correct. Might be fine now
+
 	struct dbtable *db = get_dbtable_by_name(name);
 	sc->newcsc2 = get_audit_schema(db);
 
@@ -113,7 +110,6 @@ char *get_trigger_table_name(char *newcsc2){
     newcsc2 += strlen("table ");
     int len = 0;
     while(newcsc2[len] != '\n'){len++;}
-    // zTODO: fix all mallocs to some sort of comdb2 malloc
     char *table_name = malloc((len + 1) * sizeof(char));
     strncpy(table_name, newcsc2, len);
     table_name[len] = '\0';
@@ -159,7 +155,7 @@ struct schema_change_type *gen_audited_lua(char *table_name, char *spname){
     strcpy(sc->tablename, spname);
     sc->addsp = 1;
     sc->newcsc2 = code;
-    // zTODO: sc_chain_next should automatically be NULL
+
     strcpy(sc->fname, "built-in audit");
 	return sc;
 }

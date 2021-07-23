@@ -227,7 +227,6 @@ struct schema_change_type {
     unsigned is_osql : 1;
     unsigned set_running : 1;
     uint64_t seed;
-    int nCol; /* number of columns, zTODO: -1 for not stated */
     struct schema_change_type *audit_sc;
     struct schema_change_type *sc_chain_next;
 };

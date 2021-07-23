@@ -180,7 +180,6 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, int is_trigger, int seq, Tok
 		return;
 	}
 
-	// zTODO: we should still do this if it is not audited
 	if (is_trigger != AUDITED_TRIGGER && comdb2LocateSP(parse, spname) != 0) {
 		return;
 	}
@@ -229,7 +228,6 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, int is_trigger, int seq, Tok
 	sc->is_trigger = is_trigger;
 	sc->addonly = 1;
     sc->persistent_seq = seq;
-	sc->nCol = nCol;
 	strcpy(sc->tablename, qname);
 	struct dest *d = malloc(sizeof(struct dest));
 	d->dest = strdup(method);
