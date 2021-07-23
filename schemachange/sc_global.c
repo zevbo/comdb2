@@ -414,7 +414,7 @@ void live_sc_off(struct dbtable *db)
 #ifdef DEBUG
     logmsg(LOGMSG_INFO, "live_sc_off()\n");
 #endif
-    logmsg(LOGMSG_WARN, "attempting lock in live_sc_off\n");
+    logmsg(LOGMSG_WARN, "attempting lock in live_sc_off with db of tablename %s\n", db->tablename);
     Pthread_rwlock_wrlock(&db->sc_live_lk);
     logmsg(LOGMSG_WARN, "locked in live_sc_off\n");
     db->sc_to = NULL;
