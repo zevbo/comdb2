@@ -228,7 +228,7 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, int is_trigger, int seq, Tok
 	sc->is_trigger = is_trigger;
 	sc->addonly = 1;
     sc->persistent_seq = seq;
-	sc->nCol = nCol;
+	sc->dont_expand = 1;
 	strcpy(sc->tablename, qname);
 	struct dest *d = malloc(sizeof(struct dest));
 	d->dest = strdup(method);

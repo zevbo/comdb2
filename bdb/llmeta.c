@@ -9435,13 +9435,6 @@ struct audit_key create_audit_key(char *tablename, enum llmeta_audit_key llmeta_
     return k;
 }
 
-char k[LLMETA_IXLEN] create_real_audit_key(char *tablename, enum llmeta_audit_key llmeta_audit_key){
-    struct audit_key get_key = create_audit_key(sub_table, llmeta_audit_key);
-    char k[LLMETA_IXLEN] = {0};
-    memcpy(k, &get_key, sizeof(get_key));
-    return k;
-}
-
 int bdb_get_audited_sp_tran(tran_type *tran, char *tablename, char ***audits, int *num, enum llmeta_audit_key llmeta_audit_key){
     struct audit_key k = create_audit_key(tablename, llmeta_audit_key);
     int rc, bdberr;
@@ -9450,14 +9443,18 @@ int bdb_get_audited_sp_tran(tran_type *tran, char *tablename, char ***audits, in
 }
 
 int bdb_set_audited_sp_tran(tran_type *tran, char *sub_table, char *audit_table, enum llmeta_audit_key llmeta_audit_key){
-    char k[LLMETA_IXLEN] = create_real_audit_key(sub_table, llmeta_audit_key);
+    struct audit_key get_key = create_audit_key(sub_table, llmeta_audit_key);
+    char k[LLMETA_IXLEN] = {0};
+    memcpy(k, &get_key, sizeof(get_key)); 
     int rc, bdberr;
     rc = kv_put(tran, &k, audit_table, strlen(audit_table) + 1, &bdberr);
     return rc;
 }
 
 int bdb_delete_audited_sp_tran(tran_type *tran, char *sub_table, enum llmeta_audit_key llmeta_audit_key){
-    char k[LLMETA_IXLEN] = create_real_audit_key(sub_table, llmeta_audit_key);
+    struct audit_key get_key = create_audit_key(sub_table, llmeta_audit_key);
+    char k[LLMETA_IXLEN] = {0};
+    memcpy(k, &get_key, sizeof(get_key)); 
     int bdberr;
     return kv_del(tran, &k, &bdberr);
 }

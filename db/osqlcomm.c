@@ -5825,9 +5825,8 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         sc->resume = 1;
 
     // zTODO: put this in while
-    sc = populate_sc_chain(sc);
-    //sc->sc_chain_next = NULL;
     while(sc){
+        sc = populate_sc_chain(sc);
         //struct schema_change_type *next_sc = sc->sc_chain_next;
         iq->sc = sc;
         sc->iq = iq;

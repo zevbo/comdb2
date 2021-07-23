@@ -152,7 +152,7 @@ size_t schemachange_packed_size(struct schema_change_type *s)
         sizeof(s->is_afunc) + sizeof(s->rename) + sizeof(s->newtable) +
         sizeof(s->usedbtablevers) + sizeof(s->add_view) + sizeof(s->drop_view) +
         sizeof(s->add_qdb_file) + sizeof(s->del_qdb_file) + sizeof(s->qdb_file_ver)
-        + sizeof(s->nCol);
+        + sizeof(s->dont_expand);
 
     return s->packed_len;
 }
@@ -311,8 +311,9 @@ void *buf_put_schemachange(struct schema_change_type *s, void *p_buf,
     p_buf = buf_put(&s->add_qdb_file, sizeof(s->add_qdb_file), p_buf, p_buf_end);
     p_buf = buf_put(&s->del_qdb_file, sizeof(s->del_qdb_file), p_buf, p_buf_end);
     p_buf = buf_put(&s->qdb_file_ver, sizeof(s->qdb_file_ver), p_buf, p_buf_end);
-    // zTODO: Is this the correct place? Does it even matter?
-    p_buf = buf_put(&s->nCol, sizeof(s->nCol), p_buf, p_buf_end);
+
+    p_buf = buf_put(&s->dont_expand, sizeof(s->dont_expand), p_buf, p_buf_end);
+
     return p_buf;
 }
 
@@ -550,8 +551,8 @@ void *buf_get_schemachange(struct schema_change_type *s, void *p_buf,
                                p_buf, p_buf_end);
     p_buf = (uint8_t *)buf_get(&s->qdb_file_ver, sizeof(s->qdb_file_ver),
                                p_buf, p_buf_end);
-    p_buf = (uint8_t *)buf_get(&s->nCol, sizeof(s->nCol), p_buf,
-                               p_buf_end);
+    p_buf = (uint8_t *)buf_get(&s->dont_expand, sizeof(s->dont_expand),
+                               p_buf, p_buf_end);
 
     return p_buf;
 }

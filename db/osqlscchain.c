@@ -13,7 +13,6 @@ static char *get_trigger_table_name(char *newcsc2){
     newcsc2 += strlen("table ");
     int len = 0;
     while(newcsc2[len] != '\n'){len++;}
-    // zTODO: fix all mallocs to some sort of comdb2 malloc
     char *table_name = malloc((len + 1) * sizeof(char));
     strncpy(table_name, newcsc2, len);
     table_name[len] = '\0';
@@ -69,6 +68,7 @@ static struct schema_change_type *populate_audited_trigger_chain(struct schema_c
     struct schema_change_type *sc_proc = gen_audited_lua(sc_full->tablename, sc->tablename + 3);
     append_to_chain(sc_full, sc_proc);
     append_to_chain(sc_full, sc);
+    sc->dont_expand = 0;
     sc->audit_table = sc_full->tablename;
     sc->trigger_table = tablename;
     logmsg(LOGMSG_WARN, "tablenames: %s, %s, %s\n", sc_full->tablename, sc_proc->tablename, sc->tablename);
@@ -131,7 +131,7 @@ static struct schema_change_type *populate_audit_alters(struct schema_change_typ
 struct schema_change_type *populate_sc_chain(struct schema_change_type *sc){
     // zTODO: I'm putting this here cause I already want to kms b/c of it and this will remind me how bad it is
     // sc->create_version_schema = create_version_schema;
-    if (sc->is_trigger == AUDITED_TRIGGER){
+    if (sc->is_trigger == AUDITED_TRIGGER && sc->dont_expand){
         return populate_audited_trigger_chain(sc);
     } else if (sc->alteronly && sc->newcsc2) {
         return populate_audit_alters(sc);

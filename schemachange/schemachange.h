@@ -228,7 +228,6 @@ struct schema_change_type {
     unsigned is_osql : 1;
     unsigned set_running : 1;
     uint64_t seed;
-    int nCol; /* number of columns, zTODO: -1 for not stated */
     char *trigger_table; /* only currently initialized for audited triggers */
     char *audit_table; /* name of audit table if it is an audited trigger */
     struct schema_change_type *sc_chain_next;
@@ -237,6 +236,7 @@ struct schema_change_type {
  /*   struct schema *(*create_version_schema)(char *csc2, int version,
                                      struct dbenv *dbenv); */
     int cancelled;
+    int dont_expand;
 };
 
 struct ireq;

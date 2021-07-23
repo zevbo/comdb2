@@ -361,7 +361,6 @@ done:
     return rc;
 }
 
-
 static inline void set_empty_queue_options(struct schema_change_type *s)
 {
     if (gbl_init_with_queue_odh == 0)
