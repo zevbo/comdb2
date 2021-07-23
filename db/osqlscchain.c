@@ -74,27 +74,7 @@ static struct schema_change_type *populate_audited_trigger_chain(struct schema_c
     logmsg(LOGMSG_WARN, "tablenames: %s, %s, %s\n", sc_full->tablename, sc_proc->tablename, sc->tablename);
     return sc_full;
 }
-void copy_alter_fields(struct schema_change_type *sc, struct schema_change_type *pre){
-    // Kill me
-    sc->alteronly = pre->alteronly;
-    sc->nothrevent = pre->nothrevent;
-    sc->live = pre->live;
-    sc->use_plan = pre->use_plan;
-    sc->scanmode = pre->scanmode;
-    sc->dryrun = pre->dryrun;
-    sc->headers = pre->headers;
-    sc->ip_updates = pre->ip_updates;
-    sc->instant_sc = pre->instant_sc;
-    sc->compress_blobs = pre->compress_blobs;
-    sc->compress = pre->compress;
-    sc->force_rebuild = pre->force_rebuild;
-    sc->live = pre->live;
-    sc->commit_sleep = pre->commit_sleep;
-    sc->convert_sleep = pre->convert_sleep;
-    // sc->create_version_schema = pre->create_version_schema;
-    sc->nothrevent = pre->nothrevent;
 
-}
 // zTODO: Better name
 static struct schema_change_type *populate_audit_alters(struct schema_change_type *sc){
     
@@ -105,24 +85,6 @@ static struct schema_change_type *populate_audit_alters(struct schema_change_typ
 
     bdb_get_audited_sp_tran(sc->tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
     if(num_audits > 0){sc->nothrevent = 1;}
-    /*
-    for(int i = 0; i < num_audits; i++){
-    
-        struct schema_change_type *alter_table_sc = new_schemachange_type();
-        
-        copy_alter_fields(alter_table_sc, sc);
-
-        char *audit = audits[i];
-        
-        strcpy(sc->newtable, audit);
-        strcat(sc->newtable, "$old");
-        make_name_available(sc->newtable);
-        
-        
-        append_to_chain(sc, alter_table_sc);
-
-    }
-    */
 
     return sc;
 
