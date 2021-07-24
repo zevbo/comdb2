@@ -4,6 +4,7 @@
 #include <sc_chain.h>
 #include <math.h>
 #include <sc_queues.h>
+#include <mem_override.h>
 
 // Errors I have gotten here:
 // 1. Two schema changes with the same tablename; ie: don't use reserved resources
