@@ -262,7 +262,6 @@ int sc_set_running(struct ireq *iq, struct schema_change_type *s, char *table,
                    int running, const char *host, time_t time, int replicant,
                    const char *func, int line)
 {
-    logmsg(LOGMSG_WARN, "setting RUNNING for %s to %d\n", table, running);
     sc_table_t *sctbl = NULL;
 #ifdef DEBUG_SC
     printf("%s: table %s : %d from %s:%d\n", __func__, table, running, func,
@@ -414,9 +413,7 @@ void live_sc_off(struct dbtable *db)
 #ifdef DEBUG
     logmsg(LOGMSG_INFO, "live_sc_off()\n");
 #endif
-    logmsg(LOGMSG_WARN, "attempting lock in live_sc_off with db of tablename %s\n", db->tablename);
     Pthread_rwlock_wrlock(&db->sc_live_lk);
-    logmsg(LOGMSG_WARN, "locked in live_sc_off\n");
     db->sc_to = NULL;
     db->sc_from = NULL;
     db->sc_abort = 0;
@@ -428,7 +425,6 @@ void live_sc_off(struct dbtable *db)
     db->sc_prev_nrecs = 0;
     db->doing_conversion = 0;
     Pthread_rwlock_unlock(&db->sc_live_lk);
-    logmsg(LOGMSG_WARN, "unlocked in live_sc_off\n");
 }
 
 void sc_set_downgrading(struct schema_change_type *s)
@@ -447,7 +443,6 @@ void sc_set_downgrading(struct schema_change_type *s)
     bdb_lock_table_write(s->db->handle, tran);
 
     Pthread_rwlock_wrlock(&s->db->sc_live_lk);
-    logmsg(LOGMSG_WARN, "locked in sc_set_downgrading\n");
     /* live_sc_post* code will look at this and return errors properly */
     s->db->sc_downgrading = 1;
     s->db->sc_to = NULL;
@@ -455,7 +450,6 @@ void sc_set_downgrading(struct schema_change_type *s)
     s->db->sc_abort = 0;
     s->db->doing_conversion = 0;
     Pthread_rwlock_unlock(&s->db->sc_live_lk);
-    logmsg(LOGMSG_WARN, "unlocked in sc_set_downgrading\n");
 
     if (s->db->sc_live_logical) {
         int rc =

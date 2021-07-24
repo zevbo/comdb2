@@ -1892,7 +1892,6 @@ dbtable *newdb_from_schema(struct dbenv *env, char *tblname, char *fname,
     tbl->dbnum = dbnum;
     tbl->lrl = dyns_get_db_table_size(); /* this gets adjusted later */
     Pthread_rwlock_init(&tbl->sc_live_lk, NULL);
-    logmsg(LOGMSG_WARN, "lock initialized for table %s\n", tbl->tablename);
     Pthread_mutex_init(&tbl->rev_constraints_lk, NULL);
     if (dbnum == 0) {
         /* if no dbnumber then no default tag is required ergo lrl can be 0 */

@@ -409,7 +409,6 @@ int perform_trigger_update_int(struct schema_change_type *sc)
 
     if (same_tran) {
         rc = trans_start_logical_sc(&iq, &ltran);
-        logmsg(LOGMSG_WARN, "in same tran with rc %d\n", rc);
         if (rc) {
             sbuf2printf(sb, "!Error %d creating logical transaction for %s.\n",
                     rc, sc->tablename);
@@ -418,7 +417,6 @@ int perform_trigger_update_int(struct schema_change_type *sc)
         }
         bdb_ltran_get_schema_lock(ltran);
         rc = get_physical_transaction(thedb->bdb_env, ltran, &tran, 0);
-        logmsg(LOGMSG_WARN, "physical tran rc %d\n", rc);
         if (rc != 0 || tran == NULL) {
             sbuf2printf(sb, "!Error %d creating physical transaction for %s.\n",
                     rc, sc->tablename);
@@ -427,7 +425,6 @@ int perform_trigger_update_int(struct schema_change_type *sc)
         }
     } else {
         rc = trans_start(&iq, NULL, (void *)&tran);
-        logmsg(LOGMSG_WARN, "in diff tran with rc %d\n", rc);
         if (rc) {
             sbuf2printf(sb, "!Error %d creating a transaction for %s.\n", rc,
                     sc->tablename);
@@ -519,8 +516,6 @@ int perform_trigger_update_int(struct schema_change_type *sc)
         }
     }
     
-    logmsg(LOGMSG_WARN, "check\n");
-
     /* For addding, there's no queue and no consumer/procedure, etc., so create
      * those first.  For
      * other methods, we need to manage the existing consumer first. */
@@ -906,7 +901,6 @@ char *malloced_strcpy(char *str){
 int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans)
 {
-    logmsg(LOGMSG_WARN, "is trigger: %d\n", sc->is_trigger);
     if (sc->is_trigger == AUDITED_TRIGGER){
         // zTODO: these should get freed on deletion
         char *sub_table = malloced_strcpy(sc->trigger_table);
@@ -916,7 +910,6 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         bdb_set_audited_sp_tran(trans, audit_table, sub_table, AUDIT_TO_TABLE);
         bdb_set_audited_sp_tran(trans, trigger, audit_table, TRIGGER_TO_AUDIT);
         bdb_set_audited_sp_tran(trans, audit_table, trigger, AUDIT_TO_TRIGGER);
-        logmsg(LOGMSG_WARN, "in theory set\n");
         char **audits;
         int num_audits;
         bdb_get_audited_sp_tran(trans, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
@@ -935,7 +928,6 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     int rc = perform_trigger_update_int(sc);
     javasp_do_procedure_unlock();
     unlock_schema_lk();
-    logmsg(LOGMSG_WARN, "did add trigger\n");
     return rc;
 }
 

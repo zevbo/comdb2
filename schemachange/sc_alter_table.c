@@ -458,14 +458,11 @@ err:
 
 void populate_alter_chain(struct dbtable *db, struct schema_change_type *sc, tran_type *tran){
     if (sc->newcsc2){
-        logmsg(LOGMSG_WARN, "doing populate alter chain on newcsc2: %s\n", sc->newcsc2);
         char **audits;
         int num_audits;
         // zTODO: Is version important here?
         // zTODO: is the dbenv correct?
         bdb_get_audited_sp_tran(tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
-        logmsg(LOGMSG_WARN, "num audits: %d\n", num_audits);
-        logmsg(LOGMSG_WARN, "dbenv: %d\n", db->dbenv->dbnum);
         struct schema *s = create_version_schema(sc->newcsc2, -1, db->dbenv);
         for(int i = 0; i < num_audits; i++){
             add_next_to_chain(sc, comdb2_alter_audited_sc(sc, s, audits[i]));
@@ -676,14 +673,12 @@ int do_alter_table_normal(struct ireq *iq, struct schema_change_type *s,
     }
 
     Pthread_rwlock_wrlock(&db->sc_live_lk);
-    logmsg(LOGMSG_WARN, "locked in sc_alter_table\n");
     db->sc_from = s->db = db;
     db->sc_to = s->newdb = newdb;
     db->sc_abort = 0;
     db->sc_downgrading = 0;
     db->doing_conversion = 1; /* live_sc_off will unset it */
     Pthread_rwlock_unlock(&db->sc_live_lk);
-    logmsg(LOGMSG_WARN, "unlocked in sc_alter_table\n");
 
 convert_records:
     assert(db->sc_from == db && s->db == db);
@@ -816,13 +811,9 @@ int gbl_fail_on_uncarryable_alter = 0;
 
 int do_alter_table(struct ireq *iq, struct schema_change_type *s,
                    tran_type *tran){
-    logmsg(LOGMSG_WARN, "gbl_fail_on_uncarryable_alter: %d\n", gbl_fail_on_uncarryable_alter);
     if (s->is_monitered_alter){
-        logmsg(LOGMSG_WARN, "starting monitered alter\n");
         int rc = do_alter_table_normal(iq, s, tran);
-            logmsg(LOGMSG_WARN, "Finished do_alter_table_normal with rc %d [%d, %d, %d]\n", rc, CDB2ERR_SCHEMACHANGE, SC_ACTION_ABORT, SC_ACTION_PAUSE);
         if (rc == SC_CONVERSION_FAILED && !gbl_fail_on_uncarryable_alter){
-            logmsg(LOGMSG_WARN, "zTODO: case of failed schema change to audit table not yet implemented\n");
             // zTODO: are cleaning up this schema change object
             s->cancelled = 1;
 
@@ -856,9 +847,7 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
             return rc;
         }
     } else {
-        logmsg(LOGMSG_WARN, "starting regular alter\n");
         int rc = do_alter_table_normal(iq, s, tran);
-        logmsg(LOGMSG_WARN, "regular alter finished with rc %d\n", rc);
         return rc;
     }
 }
@@ -1016,7 +1005,6 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
     commit_schemas(/*s->tablename*/ db->tablename);
     update_dbstore(db); // update needs to occur after refresh of hashtbl
 
-    logmsg(LOGMSG_WARN, "CHECK3\n");
     MEMORY_SYNC;
 
     if (!have_all_schemas()) sc_errf(s, "Missing schemas (internal error)\n");
@@ -1024,7 +1012,6 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
     /* kludge: fix lrls */
     fix_lrl_ixlen_tran(transac);
 
-    logmsg(LOGMSG_WARN, "CHECK3.1\n");
     if (s->finalize) {
         if (create_sqlmaster_records(transac)) {
             sc_errf(s, "create_sqlmaster_records failed\n");
@@ -1033,9 +1020,7 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
         create_sqlite_master();
     }
 
-    logmsg(LOGMSG_WARN, "CHECK3.2\n");
     live_sc_off(db);
-    logmsg(LOGMSG_WARN, "CHECK3.3\n");
     /* artificial sleep to aid testing */
     if (s->commit_sleep) {
         sc_printf(s, "artificially sleeping for %d...\n", s->commit_sleep);
@@ -1049,13 +1034,11 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
         logmsg(LOGMSG_INFO, "Table %s is at version: %d\n", newdb->tablename,
                newdb->schema_version);
     }
-    logmsg(LOGMSG_WARN, "CHECK3.4\n");
 
     llmeta_dump_mapping_table_tran(transac, thedb, db->tablename, 1);
 
     sc_printf(s, "Schema change ok\n");
 
-    logmsg(LOGMSG_WARN, "CHECK3.5\n");
     rc = bdb_close_only_sc(old_bdb_handle, NULL, &bdberr);
     if (rc) {
         sc_errf(s, "Failed closing old db, bdberr %d\n", bdberr);
@@ -1063,10 +1046,8 @@ int finalize_alter_table(struct ireq *iq, struct schema_change_type *s,
     }
     sc_printf(s, "Close old db ok\n");
 
-    logmsg(LOGMSG_WARN, "CHECK3.6\n");
     bdb_handle_reset_tran(new_bdb_handle, transac, iq->sc_close_tran);
     iq->sc_closed_files = 1;
-    logmsg(LOGMSG_WARN, "CHECK4\n");
 
     if (!s->same_schema ||
         (!s->fastinit &&

@@ -72,7 +72,6 @@ static struct schema_change_type *populate_audited_trigger_chain(struct schema_c
     sc->dont_expand = 0;
     sc->audit_table = sc_full->tablename;
     sc->trigger_table = tablename;
-    logmsg(LOGMSG_WARN, "tablenames: %s, %s, %s\n", sc_full->tablename, sc_proc->tablename, sc->tablename);
     return sc_full;
 }
 
@@ -81,8 +80,6 @@ static struct schema_change_type *populate_audit_alters(struct schema_change_typ
     
     char **audits;
     int num_audits;
-
-    logmsg(LOGMSG_WARN, "new csc2: %s\n", sc->newcsc2);
 
     bdb_get_audited_sp_tran(sc->tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
     if(num_audits > 0){sc->nothrevent = 1;}

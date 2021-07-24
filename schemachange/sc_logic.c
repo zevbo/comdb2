@@ -226,7 +226,6 @@ void stop_and_free_sc(struct ireq *iq, int rc,
             sbuf2printf(s->sb, "SUCCESS\n");
         }
     }
-    logmsg(LOGMSG_WARN, "stop_and_free_sc sc stop running\n");
     sc_set_running(iq, s, s->tablename, 0, NULL, 0, 0, __func__, __LINE__);
     if (do_free) {
         free_sc(s);
@@ -805,14 +804,10 @@ int do_schema_change_locked(struct schema_change_type *s)
 
 int finalize_schema_change_thd(struct ireq *iq, tran_type *trans)
 {
-    logmsg(LOGMSG_WARN, "got to finalize schema change\n");
     if (iq == NULL || iq->sc == NULL) abort();
     struct schema_change_type *s = iq->sc;
-    logmsg(LOGMSG_WARN, "attempting to lock\n");
     Pthread_mutex_lock(&s->mtx);
-    logmsg(LOGMSG_WARN, "locked, name is %s, and cancelled is %d\n", s->tablename, s->cancelled);
     enum thrtype oldtype = prepare_sc_thread(s);
-    logmsg(LOGMSG_WARN, "sc thread prepared\n");
     int rc = SC_OK;
 
     if (gbl_test_scindex_deadlock) {
@@ -820,8 +815,6 @@ int finalize_schema_change_thd(struct ireq *iq, tran_type *trans)
         sleep(30);
         logmsg(LOGMSG_INFO, "%s: slept 30s\n", __func__);
     }
-
-    logmsg(LOGMSG_WARN, "finished gbl_test_scindex_deadlock\n");
 
     /* finalize_x_sp are placeholders */
     if (s->cancelled)
@@ -858,7 +851,6 @@ int finalize_schema_change_thd(struct ireq *iq, tran_type *trans)
         rc = do_finalize(finalize_add_view, iq, s, trans, user_view);
     else if (s->drop_view)
         rc = do_finalize(finalize_drop_view, iq, s, trans, user_view);
-    logmsg(LOGMSG_WARN, "finished finalize body\n");
     reset_sc_thread(oldtype, s);
     Pthread_mutex_unlock(&s->mtx);
 
@@ -1624,7 +1616,6 @@ int scdone_abort_cleanup(struct ireq *iq)
     struct schema_change_type *s = iq->sc;
     mark_schemachange_over(s->tablename);
     if (s->set_running){
-        logmsg(LOGMSG_WARN, "abort cleanup sc stop running\n");
         sc_set_running(iq, s, s->tablename, 0, gbl_myhostname, time(NULL), 0,
                        __func__, __LINE__);
     }

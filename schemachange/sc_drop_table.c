@@ -62,15 +62,11 @@ int do_drop_table(struct ireq *iq, struct schema_change_type *s,
     char **audits;
     int num_audits;
     // zTODO: what happens if one of these fails? Do we lose our atomicity?
-    logmsg(LOGMSG_WARN, "-\n");
     bdb_get_audited_sp_tran(tran, s->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
     for(int i = 0; i < num_audits; i++){
-        logmsg(LOGMSG_WARN, "|\n");
         bdb_delete_audit_table_sp_tran(tran, audits[i], 0);
     }
-    logmsg(LOGMSG_WARN, "-\n");
     bdb_delete_audited_sp_tran(tran, s->tablename, TABLE_TO_AUDITS);
-    logmsg(LOGMSG_WARN, "-\n");
     bdb_delete_audit_table_sp_tran(tran, s->tablename, 1);
     /*
     if (rc) {
@@ -78,7 +74,6 @@ int do_drop_table(struct ireq *iq, struct schema_change_type *s,
         return rc;
     }
     */
-    logmsg(LOGMSG_WARN, "finished do drop table\n");
 
     return SC_OK;
 }
@@ -87,7 +82,6 @@ int do_drop_table(struct ireq *iq, struct schema_change_type *s,
 int finalize_drop_table(struct ireq *iq, struct schema_change_type *s,
                         tran_type *tran)
 {
-    logmsg(LOGMSG_WARN, "starting finalize drop table\n");
     struct dbtable *db = s->db;
     int rc = 0;
     int bdberr = 0;
@@ -129,7 +123,6 @@ int finalize_drop_table(struct ireq *iq, struct schema_change_type *s,
                 __func__, rc, bdberr);
         return rc;
     }
-    logmsg(LOGMSG_WARN, "check\n");
 
     if ((rc = table_version_upsert(db, tran, &bdberr)) != 0) {
         sc_errf(s, "Failed updating table version bdberr %d\n", bdberr);
@@ -165,7 +158,6 @@ int finalize_drop_table(struct ireq *iq, struct schema_change_type *s,
 
     if (gbl_replicate_local)
         local_replicant_write_clear(iq, tran, db);
-    logmsg(LOGMSG_WARN, "finished finalize drop table\n");
 
 #if 0
     /* handle in osql_scdone_commit_callback and osql_scdone_abort_callback */

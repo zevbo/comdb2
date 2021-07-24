@@ -1210,7 +1210,6 @@ int bplog_schemachange(struct ireq *iq, blocksql_tran_t *tran, void *err)
     iq->sc_should_abort = 0;
 
     rc = apply_changes(iq, tran, NULL, &nops, err, osql_process_schemachange);
-    logmsg(LOGMSG_WARN, "apply_changes returns rc %d\n", rc);
     if (rc)
         logmsg(LOGMSG_DEBUG, "apply_changes returns rc %d\n", rc);
 
@@ -1223,7 +1222,6 @@ int bplog_schemachange(struct ireq *iq, blocksql_tran_t *tran, void *err)
         sc->nothrevent = 1;
         Pthread_mutex_unlock(&sc->mtx);
         iq->sc = sc->sc_next;
-        logmsg(LOGMSG_WARN, "sc_rc: %d\n", sc->sc_rc);
         if (sc->sc_rc == SC_COMMIT_PENDING) {
             sc->sc_next = iq->sc_pending;
             iq->sc_pending = sc;
@@ -1275,7 +1273,6 @@ int bplog_schemachange(struct ireq *iq, blocksql_tran_t *tran, void *err)
                 freedb(sc->newdb);
                 sc->newdb = NULL;
             }
-            logmsg(LOGMSG_WARN, "osqlblockproc sc stop running\n");
             sc_set_running(iq, sc, sc->tablename, 0, NULL, 0, 0, __func__,
                            __LINE__);
             free_schema_change_type(sc);

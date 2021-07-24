@@ -9489,17 +9489,12 @@ int bdb_delete_audit_table_sp_tran(tran_type *tran, char *audit, int delete_sing
             bdb_delete_single_audited_sp_tran(tran, sub_table[0], audit);
         }
     }
-    logmsg(LOGMSG_WARN, "del1\n");
     bdb_delete_audited_sp_tran(tran, audit, AUDIT_TO_TABLE);
     char **trigger;
     int num_triggers;
-    logmsg(LOGMSG_WARN, "get1\n");
     bdb_get_audited_sp_tran(tran, audit, &trigger, &num_triggers, AUDIT_TO_TRIGGER);
-    logmsg(LOGMSG_WARN, "donig the assert\n");
     assert(num_triggers <= 1);
-    logmsg(LOGMSG_WARN, "asserted\n");
     bdb_delete_audited_sp_tran(tran, audit, AUDIT_TO_TRIGGER);
-    logmsg(LOGMSG_WARN, "del3\n");
     if (num_triggers == 1){
         bdb_delete_audited_sp_tran(tran, trigger[0], TRIGGER_TO_AUDIT);
     }

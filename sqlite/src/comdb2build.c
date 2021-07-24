@@ -776,7 +776,6 @@ void comdb2AlterTableCSC2(
     sc->use_plan = 1;
     sc->scanmode = SCAN_PARALLEL;
     sc->dryrun = dryrun;
-    logmsg(LOGMSG_WARN, "dryrun: %d. tablename: %s\n", sc->dryrun, sc->tablename);
     fillTableOption(sc, opt);
     copyNoSqlToken(v, pParse, &sc->newcsc2, csc2);
     if(dryrun)

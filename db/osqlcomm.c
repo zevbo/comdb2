@@ -5840,10 +5840,8 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
         
         struct schema_change_type *sc_chain_next = NULL;
         if (!timepart_is_timepart(sc->tablename, 1)) {
-            logmsg(LOGMSG_WARN, "doing schema change tran\n");
             rc = start_schema_change_tran(iq, NULL);
             sc_chain_next = sc->sc_chain_next;
-            logmsg(LOGMSG_WARN, "finished schema change tran\n");
             if ((rc != SC_ASYNC && rc != SC_COMMIT_PENDING) ||
                 sc->preempted == SC_ACTION_RESUME ||
                 sc->alteronly == SC_ALTER_PENDING) {
@@ -5855,8 +5853,8 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
                 }
 
                 sc_chain_next = NULL;
-                logmsg(LOGMSG_WARN, "returning err_sc\n");
                 iq->sc = NULL;
+                // zTODO: it's possible this should be done in osqlblockproc
                 if (sc->nothrevent){
                     stop_and_free_sc(iq, 0, sc, 1);
                 }
@@ -5880,7 +5878,6 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
     }
     iq->usedb = NULL;
     if (!rc || rc == SC_ASYNC || rc == SC_COMMIT_PENDING) {
-        logmsg(LOGMSG_WARN, "retuning out of osql_process_schemachange\n");
         return 0;
     }
 
@@ -5954,7 +5951,6 @@ int osql_process_packet(struct ireq *iq, unsigned long long rqid, uuid_t uuid,
     int type;
     unsigned long long id;
     char *msg = *pmsg;
-    logmsg(LOGMSG_WARN, "in osql_process_packet\n");
     if (rqid == OSQL_RQID_USE_UUID) {
         osql_uuid_rpl_t rpl;
         p_buf = (const uint8_t *)msg;
@@ -6047,7 +6043,6 @@ int osql_process_packet(struct ireq *iq, unsigned long long rqid, uuid_t uuid,
         /* Success: reset the table counters */
         iq->sc = iq->sc_pending;
         while (iq->sc != NULL) {
-            logmsg(LOGMSG_WARN, "osqlprocesspacket sc stop running\n");
             sc_set_running(iq, iq->sc, iq->sc->tablename, 0, NULL, 0, 0,
                            __func__, __LINE__);
             iq->sc = iq->sc->sc_next;
