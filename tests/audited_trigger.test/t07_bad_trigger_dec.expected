@@ -1,0 +1,5 @@
+[CREATE TABLE t1(i int)] rc 0
+[CREATE TABLE t2(b char(5))] rc 0
+[SELECT * FROM comdb2_triggers] rc 0
+[DROP TABLE t1] rc 0
+[DROP TABLE t2] rc 0

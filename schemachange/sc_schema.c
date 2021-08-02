@@ -664,6 +664,7 @@ done:
     free_blob_status_data(oldblobs);
 unlock:
     Pthread_rwlock_unlock(&usedb->sc_live_lk);
+    logmsg(LOGMSG_WARN, "unlocked in sc_schema\n");
 }
 
 /* After loading new schema file, should call this routine to see if ondisk

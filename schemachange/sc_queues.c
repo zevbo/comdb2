@@ -20,6 +20,7 @@
 #include "sc_schema.h"
 #include "logmsg.h"
 #include "sc_callbacks.h"
+#include <math.h>
 
 #define BDB_TRAN_MAYBE_ABORT_OR_FATAL(a,b,c) do {                             \
     (c) = 0;                                                                  \
@@ -380,8 +381,8 @@ static inline void set_empty_queue_options(struct schema_change_type *s)
 
 extern int get_physical_transaction(bdb_state_type *bdb_state,
         tran_type *logical_tran, tran_type **outtran, int force_commit);
-
-static int perform_trigger_update_int(struct schema_change_type *sc)
+// zTODO: IS it okay that I removed the static?
+int perform_trigger_update_int(struct schema_change_type *sc)
 {
     char *config = sc->newcsc2;
     int same_tran = bdb_attr_get(thedb->bdb_attr, BDB_ATTR_SC_DONE_SAME_TRAN);
@@ -488,8 +489,6 @@ static int perform_trigger_update_int(struct schema_change_type *sc)
     if ((rc = check_option_queue_coherency(sc, db)))
         goto done;
 
-    /* TODO: other checks: procedure with this name must not exist either */
-
     char **dests;
 
     if (sc->addonly || sc->alteronly) {
@@ -516,7 +515,7 @@ static int perform_trigger_update_int(struct schema_change_type *sc)
             goto done;
         }
     }
-
+    
     /* For addding, there's no queue and no consumer/procedure, etc., so create
      * those first.  For
      * other methods, we need to manage the existing consumer first. */
@@ -786,10 +785,146 @@ done:
     // depending on where it is being executed from.
 }
 
-int perform_trigger_update(struct schema_change_type *sc)
+/* takes a table name and continues trying integers starting with 2 at the end until it finds a table that does not yet exist */
+void make_name_available(char *prefix){
+    int postfix_start = strlen(prefix);
+    for(int i = 2; get_dbtable_by_name(prefix); i++){
+        char *postfix_str = malloc((ceil(log(i)) + 1) * sizeof(char));
+        sprintf(postfix_str, "$%d", i);
+        strcpy(prefix + postfix_start, postfix_str);
+        free(postfix_str);
+    }    
+}
+
+
+char *get_audit_schema(struct schema *schema){
+	int len = 0;
+	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
+	/* "}" */
+    len += strlen(schema_start);
+    len += 1;
+	char *line_postfix = "null=yes ";
+	for(int i = 0; i < schema->nmembers; i++){
+		struct field *entry = schema->member + i;
+		int line_size = strlen(csc2type(entry)) + 1 + strlen(entry->name) + strlen(line_postfix);
+        // zTODO: their should be a list of types that can do this
+        if (entry->type == SERVER_BCSTR || entry->type == SERVER_BYTEARRAY){
+            int len_size = floor(log(entry->len)) + 1;
+            line_size += 2 + len_size;
+        }
+		int new_line = line_size + 5; /* +5 is for the "new_ " */
+		int old_line = line_size + 5; /* +5 is for the "old_ " */
+		len += new_line + old_line;
+	}
+	char *audit_schema = malloc((len + 1) * sizeof(char));
+	strcpy(audit_schema, schema_start);
+	for(int i = 0; i < schema->nmembers; i++){
+		struct field *entry = schema->member + i;
+        
+		char *type = csc2type(entry);
+		char *name = NULL;
+        
+        
+        if (entry->type == SERVER_BCSTR || entry->type == SERVER_BYTEARRAY){
+            int len_size = floor(log(entry->len)) + 1;
+            char len[len_size + 3];
+            sprintf(len, "[%d]", entry->len);
+            name = malloc((strlen(entry->name) + strlen(len) + 1));
+            strcpy(name, entry->name);
+            strcat(name, len);
+        } else {
+            name = malloc((strlen(entry->name) + 1));
+            strcpy(name, entry->name);
+        }
+
+		strcat(audit_schema, type);
+		strcat(audit_schema, " new_");
+		strcat(audit_schema, name);
+		strcat(audit_schema, " ");
+		strcat(audit_schema, line_postfix);
+
+		strcat(audit_schema, type);
+		strcat(audit_schema , " old_");
+		strcat(audit_schema , name);
+		strcat(audit_schema , " ");
+		strcat(audit_schema , line_postfix);
+
+        free(name); 
+
+	}
+    
+	strcat(audit_schema, "}");
+	logmsg(LOGMSG_WARN, "audit schema: [%lu] %s\n", strlen(audit_schema), audit_schema);
+    assert(strlen(audit_schema) == len);
+	/* Assert that len_on is correct */
+	return audit_schema;
+}
+
+
+struct schema_change_type *create_audit_table_sc(char *name){
+	struct schema_change_type *sc = new_schemachange_type();
+    sc->sc_chain_next = NULL;
+	// Guesses
+    sc->onstack = 1;
+	sc->type = DBTYPE_TAGGED_TABLE;
+	sc->scanmode = gbl_default_sc_scanmode;
+    sc->live = 1;
+	// Maybe need use_plan?
+	sc->addonly = 1;
+
+	char *prefix = "$audit_";
+	strcpy(sc->tablename, prefix);
+	strcat(sc->tablename, name);
+    // zTODO: I think that get_dbtable_by_name ultimately frees name. If it doesn't we have a problem: some undefined behavior somewhere
+    // To see odd behavior, simply look at the contents of name after get_audit_schema is called
+    // It should be something like "es }" which is the ending to the audit schema in get_audit_schema
+    // Update: No longer sure the above statment is correct. Might be fine now
+	struct dbtable *db = get_dbtable_by_name(name);
+	sc->newcsc2 = get_audit_schema(db->schema);
+
+    if (db->instant_schema_change) sc->instant_sc = 1;
+
+	// What is ODH? This is just copied from timepart
+	if (db->odh) sc->headers = 1;
+
+    make_name_available(sc->tablename);
+
+	return sc;
+}
+
+char *malloced_strcpy(char *str){
+    char *new_str = malloc(strlen(str) + 1);
+    strcpy(new_str, str);
+    return new_str;
+}
+
+int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
+    tran_type *trans)
 {
+    if (sc->is_trigger == AUDITED_TRIGGER){
+        // zTODO: these should get freed on deletion
+        char *sub_table = malloced_strcpy(sc->trigger_table);
+        char *audit_table = malloced_strcpy(sc->audit_table);
+        char *trigger = malloced_strcpy(sc->tablename);
+        bdb_set_audited_sp_tran(trans, sub_table, audit_table, TABLE_TO_AUDITS);
+        bdb_set_audited_sp_tran(trans, audit_table, sub_table, AUDIT_TO_TABLE);
+        bdb_set_audited_sp_tran(trans, trigger, audit_table, TRIGGER_TO_AUDIT);
+        bdb_set_audited_sp_tran(trans, audit_table, trigger, AUDIT_TO_TRIGGER);
+        char **audits;
+        int num_audits;
+        bdb_get_audited_sp_tran(trans, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
+        logmsg(LOGMSG_WARN, "num audits for %s: %d\n", sc->tablename, num_audits);
+    } else if (sc->drop_table){
+        char **audits;
+        int num_audits;
+        bdb_get_audited_sp_tran(trans, sc->tablename, &audits, &num_audits, TRIGGER_TO_AUDIT);
+        assert(num_audits <= 1);
+        if (num_audits == 1){
+            bdb_delete_audit_table_sp_tran(trans, audits[0], 1);
+        }
+    }
     wrlock_schema_lk();
-    javasp_do_procedure_wrlock();
+    javasp_do_procedure_wrlock(); 
     int rc = perform_trigger_update_int(sc);
     javasp_do_procedure_unlock();
     unlock_schema_lk();
@@ -797,7 +932,7 @@ int perform_trigger_update(struct schema_change_type *sc)
 }
 
 // TODO -- what should this do? maybe log_scdone should be here
-int finalize_trigger(struct schema_change_type *s)
+int finalize_trigger(struct schema_change_type *s, tran_type *trans)
 {
     return 0;
 }

@@ -62,6 +62,10 @@ struct dest {
 /* status for schema_change_type->addonly */
 enum { SC_NOT_ADD = 0, SC_TO_ADD = 1, SC_DONE_ADD = 2 };
 
+/* type for is_trigger */
+enum { NO_TRIGGER = 0, NORMAL_TRIGGER = 1, AUDITED_TRIGGER = 2 };
+
+
 struct schema_change_type {
     /*  ==========    persistent members ========== */
     unsigned long long rqid;
@@ -224,6 +228,15 @@ struct schema_change_type {
     unsigned is_osql : 1;
     unsigned set_running : 1;
     uint64_t seed;
+    char *trigger_table; /* only currently initialized for audited triggers */
+    char *audit_table; /* name of audit table if it is an audited trigger */
+    struct schema_change_type *sc_chain_next;
+    int is_monitered_alter;
+    // zTODO: this makes me want to end my entire existence
+ /*   struct schema *(*create_version_schema)(char *csc2, int version,
+                                     struct dbenv *dbenv); */
+    int cancelled;
+    int dont_expand;
 };
 
 struct ireq;

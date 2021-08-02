@@ -2117,4 +2117,10 @@ REGISTER_TUNABLE("net_somaxconn",
                  "listen() backlog setting.  (Default: 0, implies system default)",
                  TUNABLE_INTEGER, &gbl_net_maxconn, READONLY, NULL, NULL, NULL, NULL);
 
+REGISTER_TUNABLE("fail_on_uncarryable_alter",
+                 "If an alter cannot be carried over to an audited table, the alter will fail rather than deleting the trigger and changing the name of the table. (Default: 0, implies system default)",
+                 TUNABLE_BOOLEAN, &gbl_fail_on_uncarryable_alter,
+                 // zTODO: no idea if readonly is correct
+                 READONLY, NULL, NULL, NULL, NULL);
+
 #endif /* _DB_TUNABLES_H */

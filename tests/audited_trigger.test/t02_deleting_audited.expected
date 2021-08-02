@@ -1,0 +1,7 @@
+[CREATE TABLE ghost(i char(6))] rc 0
+[CREATE LUA TRIGGER hi_helena ON (TABLE ghost FOR INSERT) AUDITED] rc 0
+[DROP TABLE "$audit_ghost"] rc 0
+(rows inserted=1)
+[INSERT INTO ghost values("bloop")] rc 0
+[DROP TABLE ghost] rc 0
+[DROP LUA TRIGGER hi_helena] rc 0

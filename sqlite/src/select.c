@@ -6389,6 +6389,7 @@ int sqlite3Select(
     }
     sAggInfo.mxReg = pParse->nMem;
     if( db->mallocFailed ) goto select_end;
+
 #if SELECTTRACE_ENABLED
     if( sqlite3SelectTrace & 0x400 ){
       int ii;
@@ -6661,7 +6662,9 @@ int sqlite3Select(
 #if defined(SQLITE_BUILDING_FOR_COMDB2)
         sqlite3VdbeAddTable(v, pTab);
 #endif /* defined(SQLITE_BUILDING_FOR_COMDB2) */
+        logmsg(LOGMSG_WARN, "attempting table lock in select\n");
         sqlite3TableLock(pParse, iDb, pTab->tnum, 0, pTab->zName);
+        logmsg(LOGMSG_WARN, "table locked in select\n");
 
         /* Search for the index that has the lowest scan cost.
         **
