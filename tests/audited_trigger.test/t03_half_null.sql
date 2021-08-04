@@ -5,7 +5,7 @@ CREATE LUA AUDITED TRIGGER shoutout_to_monse ON (TABLE t FOR INSERT)
 INSERT INTO t(i) values(4)
 INSERT INTO t values(5, "abc")
 
-SELECT * FROM "$audit_t" ORDER BY logtime
+SELECT new_i, new_s FROM "$audit_t" ORDER BY new_i
 
 DROP TABLE t
 DROP TABLE "$audit_t"

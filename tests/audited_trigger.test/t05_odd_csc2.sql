@@ -6,7 +6,7 @@ INSERT INTO bx1155 VALUES("0123456789")
 
 SELECT sleep(1)
 
-SELECT * FROM "$audit_bx1155"
+SELECT new_named FROM "$audit_bx1155"
 
 DROP LUA TRIGGER omar 
 DROP TABLE "$audit_bx1155"

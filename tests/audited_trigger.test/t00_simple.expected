@@ -1,5 +1,5 @@
 [CREATE TABLE t(num int)] rc 0
-[CREATE LUA TRIGGER t_audit ON (TABLE t FOR INSERT) AUDITED] rc 0
+[CREATE LUA AUDITED TRIGGER t_audit ON (TABLE t FOR INSERT)] rc 0
 ("------table and procedure creation------"='------table and procedure creation------')
 [SELECT "------table and procedure creation------"] rc 0
 (tablename='$audit_t')
@@ -13,13 +13,13 @@
 [INSERT INTO t VALUES(10)] rc 0
 (rows deleted=1)
 [DELETE FROM t WHERE num=10] rc 0
-(sleep(0.5)=0)
-[SELECT sleep(0.5)] rc 0
+(sleep(1)=1)
+[SELECT sleep(1)] rc 0
 ("------table filling------"='------table filling------')
 [SELECT "------table filling------"] rc 0
-(type='add', tbl='t', logtime="2021-07-04T001636.227 America/New_York", new_num=5, old_num=NULL)
-(type='add', tbl='t', logtime="2021-07-04T001636.228 America/New_York", new_num=10, old_num=NULL)
-[SELECT * from "$audit_t" ORDER BY new_num] rc 0
+(type='add', tbl='t', old_num=NULL, new_num=5)
+(type='add', tbl='t', old_num=NULL, new_num=10)
+[SELECT type, tbl, old_num, new_num from "$audit_t" ORDER BY new_num] rc 0
 [DROP TABLE t] rc 0
 [DROP LUA TRIGGER t_audit] rc 0
 [DROP TABLE "$audit_t"] rc 0

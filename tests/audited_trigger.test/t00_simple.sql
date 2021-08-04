@@ -12,8 +12,8 @@ DELETE FROM t WHERE num=10
 SELECT sleep(1)
 
 SELECT "------table filling------"
-SELECT * from "$audit_t" ORDER BY new_num
+SELECT type, tbl, old_num, new_num from "$audit_t" ORDER BY new_num
 
-DROP TABLE t 
+DROP TABLE t
 DROP LUA TRIGGER t_audit
 DROP TABLE "$audit_t"

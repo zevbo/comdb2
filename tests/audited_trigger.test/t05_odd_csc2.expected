@@ -4,8 +4,8 @@
 [INSERT INTO bx1155 VALUES("0123456789")] rc 0
 (sleep(1)=1)
 [SELECT sleep(1)] rc 0
-(type='add', tbl='bx1155', logtime="2021-07-05T153746.670 America/New_York", new_named='0123456789', old_named=NULL)
-[SELECT * FROM "$audit_bx1155"] rc 0
+(new_named='0123456789')
+[SELECT new_named FROM "$audit_bx1155"] rc 0
 [DROP LUA TRIGGER omar] rc 0
 [DROP TABLE "$audit_bx1155"] rc 0
 [DROP TABLE bx1155] rc 0
