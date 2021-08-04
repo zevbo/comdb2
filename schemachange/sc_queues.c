@@ -20,6 +20,7 @@
 #include "sc_schema.h"
 #include "logmsg.h"
 #include "sc_callbacks.h"
+#include "sc_schema.c"
 #include <math.h>
 
 #define BDB_TRAN_MAYBE_ABORT_OR_FATAL(a,b,c) do {                             \
@@ -881,6 +882,7 @@ struct schema_change_type *create_audit_table_sc(char *name){
     // Update: No longer sure the above statment is correct. Might be fine now
 	struct dbtable *db = get_dbtable_by_name(name);
 	sc->newcsc2 = get_audit_schema(db->schema);
+    // Setting foundix to 0. No reason for it just cause it needs to be something
 
     if (db->instant_schema_change) sc->instant_sc = 1;
 

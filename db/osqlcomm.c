@@ -5820,13 +5820,13 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
     else
         sc->nothrevent = 1;
     sc->finalize = 0;
-    if (sc->original_master_node[0] != 0 &&
-        strcmp(sc->original_master_node, gbl_myhostname))
-        sc->resume = 1;
 
-    // zTODO: put this in while
     while(sc){
         sc = populate_sc_chain(sc);
+        sc->usedbtablevers = comdb2_table_version(sc->tablename);
+        if (sc->original_master_node[0] != 0 &&
+            strcmp(sc->original_master_node, gbl_myhostname))
+            sc->resume = 1;
         //struct schema_change_type *next_sc = sc->sc_chain_next;
         iq->sc = sc;
         sc->iq = iq;

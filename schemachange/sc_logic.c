@@ -389,11 +389,13 @@ static int check_table_version(struct ireq *iq, struct schema_change_type *sc)
     int rc, bdberr;
     unsigned long long version;
     rc = bdb_table_version_select(sc->tablename, NULL, &version, &bdberr);
+    logmsg(LOGMSG_WARN, "table %s has version %llu [rc %d, utl %d]\n", sc->tablename, version, rc, sc->usedbtablevers);
     if (rc != 0) {
         errstat_set_strf(&iq->errstat,
                          "failed to get version for table:%s rc:%d",
                          sc->tablename, rc);
         iq->errstat.errval = ERR_SC;
+        logmsg(LOGMSG_WARN, "returning sc_internal_error\n");
         return SC_INTERNAL_ERROR;
     }
     if (sc->usedbtablevers != version) {
