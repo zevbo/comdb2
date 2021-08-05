@@ -167,7 +167,11 @@ typedef enum {
     LLMETA_SCHEMACHANGE_STATUS = 50,
     LLMETA_VIEW = 51,                 /* User defined views */
     LLMETA_SCHEMACHANGE_HISTORY = 52, /* 52 + SEED[8] */
-    LLMETA_SEQUENCE_VALUE = 53
+    LLMETA_SEQUENCE_VALUE = 53,
+    LLMETA_TABLE_TO_AUDITS = 54,
+    LLMETA_AUDIT_TO_TABLE = 55,
+    LLMETA_TRIGGER_TO_AUDIT = 56,
+    LLMETA_AUDIT_TO_TRIGGER = 57
 } llmetakey_t;
 
 struct llmeta_file_type_key {
@@ -9413,6 +9417,87 @@ int bdb_get_default_versioned_sp_tran(tran_type *tran, char *name, char **versio
     }
     free(versions);
     return rc;
+}
+
+// Note: right now the format of the keys for all the audit tables are the same; some work will need to be put in to change that
+// Note about table to audits table: if the audit table is deleted, the entry is deleted. If the trigger is deleted, the entry is still deleted.
+struct audit_key {
+    char tablename[MAXTABLELEN];
+    llmetakey_t llmetakey;
+};
+
+struct audit_key create_audit_key(char *tablename, enum llmeta_audit_key llmeta_audit_key){
+    struct audit_key k;
+    memset(k.tablename, 0, sizeof(k.tablename));
+    strcpy(k.tablename, tablename);
+    k.llmetakey = (llmetakey_t) llmeta_audit_key;
+    return k;
+}
+
+int bdb_get_audit_sp_tran(tran_type *tran, char *tablename, char ***audits, int *num, enum llmeta_audit_key llmeta_audit_key){
+    struct audit_key k = create_audit_key(tablename, llmeta_audit_key);
+    int rc, bdberr;
+    rc = kv_get(tran, &k, sizeof(k), (void ***) audits, num, &bdberr);
+    return rc;
+}
+
+int bdb_set_audit_sp_tran(tran_type *tran, char *sub_table, char *audit_table, enum llmeta_audit_key llmeta_audit_key){
+    struct audit_key get_key = create_audit_key(sub_table, llmeta_audit_key);
+    char k[LLMETA_IXLEN] = {0};
+    memcpy(k, &get_key, sizeof(get_key)); 
+    int rc, bdberr;
+    rc = kv_put(tran, &k, audit_table, strlen(audit_table) + 1, &bdberr);
+    return rc;
+}
+
+int bdb_delete_audit_sp_tran(tran_type *tran, char *sub_table, enum llmeta_audit_key llmeta_audit_key){
+    struct audit_key get_key = create_audit_key(sub_table, llmeta_audit_key);
+    char k[LLMETA_IXLEN] = {0};
+    memcpy(k, &get_key, sizeof(get_key)); 
+    int bdberr;
+    return kv_del(tran, &k, &bdberr);
+}
+
+// zTODO: I feel like this isn't atomic, just because I might return at an rc in one
+//   spot and not complete but have already started
+int bdb_delete_single_audit_sp_tran(tran_type *tran, char *sub_table, char *audit_table){
+    char **audits;
+    int num_audits;
+    int rc = bdb_get_audit_sp_tran(tran, sub_table, &audits, &num_audits, TABLE_TO_AUDITS);
+    if (rc) {return rc;}
+    rc = bdb_delete_audit_sp_tran(tran, sub_table, TABLE_TO_AUDITS);
+    if (rc) {return rc;}
+    // zTODOc: might want to create a function so that other people can do this too
+    for(int i = 0; i < num_audits; i++){
+        char *audit = audits[i];
+        if (strcmp(audit, audit_table) != 0){
+            int rc = bdb_set_audit_sp_tran(tran, sub_table, audit, TABLE_TO_AUDITS);
+            if (rc) {return rc;}
+        }
+    }
+    return 0;
+}
+
+int bdb_delete_audit_table_sp_tran(tran_type *tran, char *audit, int delete_single){
+    if (delete_single) {
+        char **sub_table;
+        int num_sub_tables;
+        bdb_get_audit_sp_tran(tran, audit, &sub_table, &num_sub_tables, AUDIT_TO_TABLE);
+        assert(num_sub_tables <= 1);
+        if (num_sub_tables == 1){
+            bdb_delete_single_audit_sp_tran(tran, sub_table[0], audit);
+        }
+    }
+    bdb_delete_audit_sp_tran(tran, audit, AUDIT_TO_TABLE);
+    char **trigger;
+    int num_triggers;
+    bdb_get_audit_sp_tran(tran, audit, &trigger, &num_triggers, AUDIT_TO_TRIGGER);
+    assert(num_triggers <= 1);
+    bdb_delete_audit_sp_tran(tran, audit, AUDIT_TO_TRIGGER);
+    if (num_triggers == 1){
+        bdb_delete_audit_sp_tran(tran, trigger[0], TRIGGER_TO_AUDIT);
+    }
+    return 0;
 }
 
 int bdb_get_default_versioned_sp(char *name, char **version)

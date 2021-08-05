@@ -2120,4 +2120,11 @@ REGISTER_TUNABLE("net_somaxconn",
                  "listen() backlog setting.  (Default: 0, implies system default)",
                  TUNABLE_INTEGER, &gbl_net_maxconn, READONLY, NULL, NULL, NULL, NULL);
 
+REGISTER_TUNABLE("cary_alters_to_audits",
+                 "If an alter is made to a table that has an active audit trigger, attempt the corresponding alter to the audit table (Default: 0, implies system default)",
+                 TUNABLE_BOOLEAN, &gbl_cary_alters_to_audits,
+                 // zTODOq: no idea if readonly is correct
+                 // zTODOq: do I need to put this in the all tunables tests?
+                 DYNAMIC, NULL, NULL, NULL, NULL);
+
 #endif /* _DB_TUNABLES_H */

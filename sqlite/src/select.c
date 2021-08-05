@@ -6389,6 +6389,7 @@ int sqlite3Select(
     }
     sAggInfo.mxReg = pParse->nMem;
     if( db->mallocFailed ) goto select_end;
+
 #if SELECTTRACE_ENABLED
     if( sqlite3SelectTrace & 0x400 ){
       int ii;

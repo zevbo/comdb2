@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <fsnapf.h>
 #include <limits.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -686,9 +687,9 @@ static int bdb_lite_exact_del_int(bdb_state_type *bdb_state, tran_type *tran, vo
     dbt_key.size = keylen;
     dbt_key.flags |= DB_DBT_USERMEM;
 
+
     rc = bdb_state->dbp_data[0][0]->del(bdb_state->dbp_data[0][0], tid,
                                         &dbt_key, flags);
-
     if (rc != 0) {
         switch (rc) {
         case DB_REP_HANDLE_DEAD:
@@ -699,7 +700,6 @@ static int bdb_lite_exact_del_int(bdb_state_type *bdb_state, tran_type *tran, vo
             *bdberr = BDBERR_DEL_DTA;
             break;
         default:
-            logmsg(LOGMSG_ERROR, "bdb_lite_exact_del rc=%d\n", rc);
             *bdberr = BDBERR_MISC;
             break;
         }

@@ -1,0 +1,80 @@
+[CREATE TABLE t1(i int, c char(5), b int)] rc 0
+[CREATE TABLE t2(a int, bloop char(100))] rc 0
+(rows inserted=1)
+[INSERT INTO t1 VALUES(4, "abc", 1232)] rc 0
+[CREATE LUA AUDIT TRIGGER hello ON (TABLE t1 FOR UPDATE AND DELETE)] rc 0
+[CREATE LUA AUDIT TRIGGER world ON (TABLE t2 FOR UPDATE AND INSERT)] rc 0
+(rows inserted=1)
+[INSERT INTO t1 VALUES(10, "fsad", -5)] rc 0
+(rows deleted=1)
+[DELETE FROM t1 WHERE b=1232] rc 0
+(rows inserted=1)
+[INSERT INTO t2 VALUES(1, "a duck walked up to a lemonade stand")] rc 0
+(sleep(1)=1)
+[SELECT sleep(1)] rc 0
+("-------------first selection------------"='-------------first selection------------')
+[SELECT "-------------first selection------------"] rc 0
+(old_i=4, new_i=NULL, old_c='abc', new_c=NULL, old_b=1232, new_b=NULL)
+[SELECT old_i, new_i, old_c, new_c, old_b, new_b FROM "$audit_t1" ORDER BY old_i, new_i] rc 0
+(old_a=NULL, new_a=1, old_bloop=NULL, new_bloop='a duck walked up to a lemonade stand')
+[SELECT old_a, new_a, old_bloop, new_bloop FROM "$audit_t2" ORDER BY old_a, new_a] rc 0
+[CREATE LUA AUDIT TRIGGER world2 ON (TABLE t1 FOR INSERT AND UPDATE AND DELETE)] rc 0
+(rows inserted=1)
+[INSERT INTO t1 VALUES(0, "doop", 4)] rc 0
+[DROP TABLE "$audit_t1"] rc 0
+[DROP LUA TRIGGER hello] rc 0
+[CREATE LUA AUDIT TRIGGER hello2 ON (TABLE t1 FOR INSERT AND UPDATE AND DELETE)] rc 0
+(rows deleted=1)
+[DELETE FROM t1 WHERE c="doop"] rc 0
+(rows inserted=1)
+[INSERT INTO t1 VALUES(100, "doop3", 4)] rc 0
+(sleep(1)=1)
+[SELECT sleep(1)] rc 0
+("-------------second selection------------"='-------------second selection------------')
+[SELECT "-------------second selection------------"] rc 0
+(tablename='sqlite_stat1')
+(tablename='sqlite_stat4')
+(tablename='t1')
+(tablename='t2')
+(tablename='$audit_t2')
+(tablename='$audit_t1$2')
+(tablename='$audit_t1')
+[SELECT * FROM comdb2_tables] rc 0
+(name='world2', type='trigger', tbl_name='t1', event='add', col='b', seq='N')
+(name='hello2', type='trigger', tbl_name='t1', event='add', col='b', seq='N')
+(name='world2', type='trigger', tbl_name='t1', event='add', col='c', seq='N')
+(name='hello2', type='trigger', tbl_name='t1', event='add', col='c', seq='N')
+(name='world2', type='trigger', tbl_name='t1', event='add', col='i', seq='N')
+(name='hello2', type='trigger', tbl_name='t1', event='add', col='i', seq='N')
+(name='world2', type='trigger', tbl_name='t1', event='del', col='b', seq='N')
+(name='hello2', type='trigger', tbl_name='t1', event='del', col='b', seq='N')
+(name='world2', type='trigger', tbl_name='t1', event='del', col='c', seq='N')
+(name='hello2', type='trigger', tbl_name='t1', event='del', col='c', seq='N')
+(name='world2', type='trigger', tbl_name='t1', event='del', col='i', seq='N')
+(name='hello2', type='trigger', tbl_name='t1', event='del', col='i', seq='N')
+(name='world2', type='trigger', tbl_name='t1', event='upd', col='b', seq='N')
+(name='hello2', type='trigger', tbl_name='t1', event='upd', col='b', seq='N')
+(name='world2', type='trigger', tbl_name='t1', event='upd', col='c', seq='N')
+(name='hello2', type='trigger', tbl_name='t1', event='upd', col='c', seq='N')
+(name='world2', type='trigger', tbl_name='t1', event='upd', col='i', seq='N')
+(name='hello2', type='trigger', tbl_name='t1', event='upd', col='i', seq='N')
+(name='world', type='trigger', tbl_name='t2', event='add', col='a', seq='N')
+(name='world', type='trigger', tbl_name='t2', event='add', col='bloop', seq='N')
+(name='world', type='trigger', tbl_name='t2', event='upd', col='a', seq='N')
+(name='world', type='trigger', tbl_name='t2', event='upd', col='bloop', seq='N')
+[SELECT * FROM comdb2_triggers ORDER BY tbl_name, event, col] rc 0
+(old_i=NULL, new_i=100, old_c=NULL, new_c='doop3', old_b=NULL, new_b=4)
+(old_i=0, new_i=NULL, old_c='doop', new_c=NULL, old_b=4, new_b=NULL)
+[SELECT old_i, new_i, old_c, new_c, old_b, new_b FROM "$audit_t1" ORDER BY old_i, new_i] rc 0
+(old_i=NULL, new_i=0, old_c=NULL, new_c='doop', old_b=NULL, new_b=4)
+(old_i=NULL, new_i=100, old_c=NULL, new_c='doop3', old_b=NULL, new_b=4)
+(old_i=0, new_i=NULL, old_c='doop', new_c=NULL, old_b=4, new_b=NULL)
+[SELECT old_i, new_i, old_c, new_c, old_b, new_b FROM "$audit_t1$2" ORDER BY old_i, new_i] rc 0
+[DROP LUA TRIGGER world] rc 0
+[DROP LUA TRIGGER world2] rc 0
+[DROP LUA TRIGGER hello2] rc 0
+[DROP TABLE t1] rc 0
+[DROP TABLE t2] rc 0
+[DROP TABLE "$audit_t1"] rc 0
+[DROP TABLE "$audit_t1$2"] rc 0
+[DROP TABLE "$audit_t2"] rc 0

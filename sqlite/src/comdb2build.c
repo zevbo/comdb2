@@ -514,8 +514,17 @@ int comdb2SqlDryrunSchemaChange(OpFunc *f)
     return f->rc;
 }
 
+int performOsqlScheamchangeLogic(void *arg, int usedb){
+    struct sql_thread *thd = pthread_getspecific(query_info_key);
+    struct schema_change_type *s = (struct schema_change_type*)arg;
+    return osql_schemachange_logic(s, thd, usedb);
+}
+
 static int comdb2SqlSchemaChange_int(OpFunc *f, int usedb)
 {
+    /* this doesn't work and I'm not sure why
+    f->rc = perform_osql_schemachange_logic(f->arg, usedb); */
+
     struct sql_thread *thd = pthread_getspecific(query_info_key);
     struct schema_change_type *s = (struct schema_change_type*)f->arg;
     f->rc = osql_schemachange_logic(s, thd, usedb);
@@ -534,6 +543,42 @@ static int comdb2SqlSchemaChange_usedb(OpFunc *f)
 static int comdb2SqlSchemaChange(OpFunc *f)
 {
     return comdb2SqlSchemaChange_int(f, 0);
+}
+
+
+/* I'm not sure why comdb2SchemaChange_tran only allows one sc */
+/* TODO: Decrease code replication with comdb2SchemaChange_tran */
+int comdb2SqlSchemaChange_bigTran(OpFunc *f){
+    struct sqlclntstate *clnt = get_sql_clnt();
+    osqlstate_t *osql = &clnt->osql;
+    int rc = 0;
+    int sentops = 0;
+    int bdberr = 0;
+    osql_sock_start(clnt, OSQL_SOCK_REQ ,0);
+    struct sc_linked_list *sc_list = (struct sc_linked_list *)f->arg;
+    while(sc_list){
+        performOsqlScheamchangeLogic(sc_list->sc, 0);
+        if (clnt->dbtran.mode != TRANLEVEL_SOSQL) {
+            rc = osql_shadtbl_process(clnt, &sentops, &bdberr, 0);
+            if (rc) {
+                logmsg(LOGMSG_ERROR,
+                    "%s:%d failed to process shadow table, rc %d, bdberr %d\n",
+                    __func__, __LINE__, rc, bdberr);
+                osql_sock_abort(clnt, OSQL_SOCK_REQ);
+                f->rc = osql->xerr.errval = ERR_INTERNAL;
+                f->errorMsg = "Failed to process shadow table";
+                return ERR_INTERNAL;
+            }
+        }
+        sc_list = sc_list->next;
+    }
+    rc = osql_sock_commit(clnt, OSQL_SOCK_REQ);
+    if (osql->xerr.errval == COMDB2_SCHEMACHANGE_OK) {
+        osql->xerr.errval = 0;
+    }
+    f->rc = osql->xerr.errval;
+    f->errorMsg = osql->xerr.errstr;
+    return f->rc;
 }
 
 int comdb2SqlSchemaChange_tran(OpFunc *f)
@@ -1057,8 +1102,7 @@ void comdb2CreateProcedure(Parse* pParse, Token* nm, Token* ver, Token* proc)
     }
 #endif
 
-    if (comdb2AuthenticateUserOp(pParse))
-        return;
+    if (comdb2AuthenticateUserOp(pParse)) return;
 
     char spname[MAX_SPNAME];
     char sp_version[MAX_SPVERSION_LEN];

@@ -1,0 +1,38 @@
+[PUT TUNABLE cary_alters_to_audits 0] rc 0
+[CREATE TABLE t(i int)] rc 0
+[CREATE LUA AUDIT TRIGGER bloop ON (TABLE t FOR INSERT)] rc 0
+(rows inserted=1)
+[INSERT INTO t VALUES(4)] rc 0
+[ALTER TABLE t ADD COLUMN b int] rc 0
+(i=4, b=NULL)
+<<<<<<< HEAD
+[SELECT * FROM t ORDER BY i] rc 0
+(new_i=4, old_i=NULL)
+[SELECT new_i, old_i FROM "$audit_t" ORDER BY new_i, old_i] rc 0
+=======
+[SELECT * FROM t] rc 0
+(type='add', tbl='t', logtime="2021-08-05T151422.320 America/New_York", new_i=4, old_i=NULL)
+[SELECT * FROM "$audit_t"] rc 0
+>>>>>>> 0d2b3e8ae415c583df03730f3657900f6dd6bebf
+[DROP TABLE t] rc 0
+[DROP TABLE "$audit_t"] rc 0
+[DROP LUA TRIGGER bloop] rc 0
+[PUT TUNABLE cary_alters_to_audits 1] rc 0
+[CREATE TABLE t(i int)] rc 0
+[CREATE LUA AUDIT TRIGGER bloop ON (TABLE t FOR INSERT)] rc 0
+(rows inserted=1)
+[INSERT INTO t VALUES(4)] rc 0
+[ALTER TABLE t ADD COLUMN b int] rc 0
+(i=4, b=NULL)
+[SELECT * FROM t] rc 0
+<<<<<<< HEAD
+(new_i=4, old_i=NULL, new_b=NULL, old_b=NULL)
+[SELECT new_i, old_i, new_b, old_b FROM "$audit_t" ORDER BY new_i, old_i] rc 0
+=======
+(type='add', tbl='t', logtime="2021-08-05T151423.369 America/New_York", new_i=4, old_i=NULL, new_b=NULL, old_b=NULL)
+[SELECT * FROM "$audit_t"] rc 0
+>>>>>>> 0d2b3e8ae415c583df03730f3657900f6dd6bebf
+[DROP TABLE t] rc 0
+[DROP TABLE "$audit_t"] rc 0
+[DROP LUA TRIGGER bloop] rc 0
+[PUT TUNABLE cary_alters_to_audits 0] rc 0

@@ -1,0 +1,11 @@
+[CREATE TABLE t(i int, s char(65))] rc 0
+[CREATE LUA AUDIT TRIGGER heyo ON (TABLE t FOR INSERT)] rc 0
+(rows inserted=1)
+[INSERT INTO t values(5, "abc")] rc 0
+(sleep(1)=1)
+[SELECT sleep(1)] rc 0
+(new_i=5, new_s='abc')
+[SELECT new_i, new_s FROM "$audit_t" ORDER BY new_i] rc 0
+[DROP TABLE t] rc 0
+[DROP TABLE "$audit_t"] rc 0
+[DROP LUA TRIGGER heyo] rc 0
