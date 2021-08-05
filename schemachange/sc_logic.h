@@ -22,7 +22,6 @@
 int dryrun_int(struct schema_change_type *, struct dbtable *db, struct dbtable *newdb,
                struct scinfo *);
 int dryrun(struct schema_change_type *s);
-// zTODO: is this cool?
 void stop_and_free_sc(struct ireq *iq, int rc,
                              struct schema_change_type *s, int do_free);
 void stop_and_free_sc_chain(struct ireq *iq, int rc,

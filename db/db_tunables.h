@@ -2117,10 +2117,11 @@ REGISTER_TUNABLE("net_somaxconn",
                  "listen() backlog setting.  (Default: 0, implies system default)",
                  TUNABLE_INTEGER, &gbl_net_maxconn, READONLY, NULL, NULL, NULL, NULL);
 
-REGISTER_TUNABLE("fail_on_uncarryable_alter",
-                 "If an alter cannot be carried over to an audited table, the alter will fail rather than deleting the trigger and changing the name of the table. (Default: 0, implies system default)",
-                 TUNABLE_BOOLEAN, &gbl_fail_on_uncarryable_alter,
-                 // zTODO: no idea if readonly is correct
+REGISTER_TUNABLE("cary_alters_to_audits",
+                 "If an alter is made to a table that has an active audited trigger, attempt the corresponding alter to the audit table (Default: 0, implies system default)",
+                 TUNABLE_BOOLEAN, &gbl_cary_alters_to_audits,
+                 // zTODOq: no idea if readonly is correct
+                 // zTODOq: do I need to put this in the all tunables tests?
                  READONLY, NULL, NULL, NULL, NULL);
 
 #endif /* _DB_TUNABLES_H */

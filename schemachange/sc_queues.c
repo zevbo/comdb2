@@ -382,7 +382,7 @@ static inline void set_empty_queue_options(struct schema_change_type *s)
 
 extern int get_physical_transaction(bdb_state_type *bdb_state,
         tran_type *logical_tran, tran_type **outtran, int force_commit);
-// zTODO: IS it okay that I removed the static?
+// zTODOq: IS it okay that I removed the static?
 int perform_trigger_update_int(struct schema_change_type *sc)
 {
     char *config = sc->newcsc2;
@@ -787,6 +787,7 @@ done:
 }
 
 /* takes a table name and continues trying integers starting with 2 at the end until it finds a table that does not yet exist */
+/* expectes prefix to have more data alloced beyond termination character */
 void make_name_available(char *prefix){
     int postfix_start = strlen(prefix);
     for(int i = 2; get_dbtable_by_name(prefix); i++){
@@ -801,15 +802,14 @@ void make_name_available(char *prefix){
 char *get_audit_schema(struct schema *schema){
 	int len = 0;
 	char *schema_start = "schema {cstring type[4] cstring tbl[64] datetime logtime ";
-	/* "}" */
     len += strlen(schema_start);
-    len += 1;
 	char *line_postfix = "null=yes ";
 	for(int i = 0; i < schema->nmembers; i++){
 		struct field *entry = schema->member + i;
 		int line_size = strlen(csc2type(entry)) + 1 + strlen(entry->name) + strlen(line_postfix);
-        // zTODO: their should be a list of types that can do this
+        // zTODOc: their should be a list of types that can do this
         if (entry->type == SERVER_BCSTR || entry->type == SERVER_BYTEARRAY){
+            // Types that have []
             int len_size = floor(log(entry->len)) + 1;
             line_size += 2 + len_size;
         }
@@ -817,6 +817,8 @@ char *get_audit_schema(struct schema *schema){
 		int old_line = line_size + 5; /* +5 is for the "old_ " */
 		len += new_line + old_line;
 	}
+    /* "}" */
+    len += 1;
 	char *audit_schema = malloc((len + 1) * sizeof(char));
 	strcpy(audit_schema, schema_start);
 	for(int i = 0; i < schema->nmembers; i++){
@@ -824,7 +826,6 @@ char *get_audit_schema(struct schema *schema){
         
 		char *type = csc2type(entry);
 		char *name = NULL;
-        
         
         if (entry->type == SERVER_BCSTR || entry->type == SERVER_BYTEARRAY){
             int len_size = floor(log(entry->len)) + 1;
@@ -855,9 +856,8 @@ char *get_audit_schema(struct schema *schema){
 	}
     
 	strcat(audit_schema, "}");
-	logmsg(LOGMSG_WARN, "audit schema: [%lu] %s\n", strlen(audit_schema), audit_schema);
+	/* Assert that we got the length correct */
     assert(strlen(audit_schema) == len);
-	/* Assert that len_on is correct */
 	return audit_schema;
 }
 
@@ -865,24 +865,20 @@ char *get_audit_schema(struct schema *schema){
 struct schema_change_type *create_audit_table_sc(char *name){
 	struct schema_change_type *sc = new_schemachange_type();
     sc->sc_chain_next = NULL;
-	// Guesses
+
+	// It's totally possible any of the immediatly below section is wrong
     sc->onstack = 1;
 	sc->type = DBTYPE_TAGGED_TABLE;
 	sc->scanmode = gbl_default_sc_scanmode;
     sc->live = 1;
-	// Maybe need use_plan?
+
 	sc->addonly = 1;
 
 	char *prefix = "$audit_";
 	strcpy(sc->tablename, prefix);
 	strcat(sc->tablename, name);
-    // zTODO: I think that get_dbtable_by_name ultimately frees name. If it doesn't we have a problem: some undefined behavior somewhere
-    // To see odd behavior, simply look at the contents of name after get_audit_schema is called
-    // It should be something like "es }" which is the ending to the audit schema in get_audit_schema
-    // Update: No longer sure the above statment is correct. Might be fine now
 	struct dbtable *db = get_dbtable_by_name(name);
 	sc->newcsc2 = get_audit_schema(db->schema);
-    // Setting foundix to 0. No reason for it just cause it needs to be something
 
     if (db->instant_schema_change) sc->instant_sc = 1;
 
@@ -903,8 +899,10 @@ char *malloced_strcpy(char *str){
 int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans)
 {
+    wrlock_schema_lk();
+    javasp_do_procedure_wrlock();
     if (sc->is_trigger == AUDITED_TRIGGER){
-        // zTODO: these should get freed on deletion
+        // zTODOq: these should get freed on deletion. Do they?
         char *sub_table = malloced_strcpy(sc->trigger_table);
         char *audit_table = malloced_strcpy(sc->audit_table);
         char *trigger = malloced_strcpy(sc->tablename);
@@ -912,10 +910,6 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         bdb_set_audited_sp_tran(trans, audit_table, sub_table, AUDIT_TO_TABLE);
         bdb_set_audited_sp_tran(trans, trigger, audit_table, TRIGGER_TO_AUDIT);
         bdb_set_audited_sp_tran(trans, audit_table, trigger, AUDIT_TO_TRIGGER);
-        char **audits;
-        int num_audits;
-        bdb_get_audited_sp_tran(trans, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
-        logmsg(LOGMSG_WARN, "num audits for %s: %d\n", sc->tablename, num_audits);
     } else if (sc->drop_table){
         char **audits;
         int num_audits;
@@ -925,8 +919,6 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
             bdb_delete_audit_table_sp_tran(trans, audits[0], 1);
         }
     }
-    wrlock_schema_lk();
-    javasp_do_procedure_wrlock(); 
     int rc = perform_trigger_update_int(sc);
     javasp_do_procedure_unlock();
     unlock_schema_lk();

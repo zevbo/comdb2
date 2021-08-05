@@ -9425,7 +9425,6 @@ struct audit_key {
     char tablename[MAXTABLELEN];
     llmetakey_t llmetakey;
 };
-// zTODO: assert that this is smaller than the max key size
 
 struct audit_key create_audit_key(char *tablename, enum llmeta_audit_key llmeta_audit_key){
     struct audit_key k;
@@ -9468,7 +9467,7 @@ int bdb_delete_single_audited_sp_tran(tran_type *tran, char *sub_table, char *au
     if (rc) {return rc;}
     rc = bdb_delete_audited_sp_tran(tran, sub_table, TABLE_TO_AUDITS);
     if (rc) {return rc;}
-    // zTODO: might want to create a function so that other people can do this too
+    // zTODOc: might want to create a function so that other people can do this too
     for(int i = 0; i < num_audits; i++){
         char *audit = audits[i];
         if (strcmp(audit, audit_table) != 0){

@@ -517,7 +517,6 @@ int comdb2SqlDryrunSchemaChange(OpFunc *f)
 int performOsqlScheamchangeLogic(void *arg, int usedb){
     struct sql_thread *thd = pthread_getspecific(query_info_key);
     struct schema_change_type *s = (struct schema_change_type*)arg;
-    // zTODO: do I have to deal with this path of logic in sc_chain_next?
     return osql_schemachange_logic(s, thd, usedb);
 }
 

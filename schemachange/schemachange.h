@@ -230,12 +230,9 @@ struct schema_change_type {
     uint64_t seed;
     char *trigger_table; /* only currently initialized for audited triggers */
     char *audit_table; /* name of audit table if it is an audited trigger */
-    struct schema_change_type *sc_chain_next;
+    struct schema_change_type *sc_chain_next; /* chain schema changes to automatically be executed in the same transaction */
     int is_monitered_alter;
-    // zTODO: this makes me want to end my entire existence
- /*   struct schema *(*create_version_schema)(char *csc2, int version,
-                                     struct dbenv *dbenv); */
-    int cancelled;
+    int cancelled; /* indicates that a schema changes has been "cancelled" in the prep phase, but should not fail the transaction */
     int dont_expand;
 };
 

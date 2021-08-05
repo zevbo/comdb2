@@ -1,10 +1,10 @@
 #!/bin/sh
 
 
-on_first=0
+on_first=1
 for var in "$@"
 do
-	if [ $on_first == 1 ]
+	if [ $on_first == 0 ]
 	then
 		cdb2sql $1 -f $var.sql > temp-result.txt
 		result_diff=$(diff temp-result.txt $var.expected)
@@ -19,6 +19,6 @@ do
 		echo ""
 
 	else
-		on_first=1
+		on_first=0
 	fi
 done	

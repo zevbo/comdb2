@@ -356,7 +356,8 @@ static void check_for_idx_rename(struct dbtable *newdb, struct dbtable *olddb)
 }
 
 void copy_alter_sc(struct schema_change_type *sc, struct schema_change_type *pre){
-    // zTODO: Kill me
+    // This is bad but there's not going to be a better way to do this until the schemachange
+    //   object is fixed to be an enum and a union 
     sc->alteronly = pre->alteronly;
     sc->nothrevent = pre->nothrevent;
     sc->live = pre->live;
@@ -372,7 +373,6 @@ void copy_alter_sc(struct schema_change_type *sc, struct schema_change_type *pre
     sc->live = pre->live;
     sc->commit_sleep = pre->commit_sleep;
     sc->convert_sleep = pre->convert_sleep;
-    // sc->create_version_schema = pre->create_version_schema;
     sc->nothrevent = pre->nothrevent;
 }
 
@@ -459,8 +459,8 @@ void populate_alter_chain(struct dbtable *db, struct schema_change_type *sc, tra
     if (sc->newcsc2){
         char **audits;
         int num_audits;
-        // zTODO: Is version important here?
-        // zTODO: is the dbenv correct?
+        // zTODOq: Is version important here?
+        // zTODOq: is the dbenv correct?
         bdb_get_audited_sp_tran(tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
         struct schema *s = create_version_schema(sc->newcsc2, -1, db->dbenv);
         for(int i = 0; i < num_audits; i++){
@@ -468,6 +468,8 @@ void populate_alter_chain(struct dbtable *db, struct schema_change_type *sc, tra
         }
     }
 }
+
+int gbl_cary_alters_to_audits = 0;
 
 int do_alter_table_normal(struct ireq *iq, struct schema_change_type *s,
                    tran_type *tran)
@@ -496,7 +498,9 @@ int do_alter_table_normal(struct ireq *iq, struct schema_change_type *s,
         sc_errf(s, "Table not found:%s\n", s->tablename);
         return SC_TABLE_DOESNOT_EXIST;
     }
-    populate_alter_chain(db, s, tran);
+    if (gbl_cary_alters_to_audits){
+        populate_alter_chain(db, s, tran);
+    }
 
     if (s->resume == SC_PREEMPT_RESUME) {
         newdb = db->sc_to;
@@ -806,48 +810,46 @@ errout:
         goto backout;                                                          \
     } while (0);
 
-int gbl_fail_on_uncarryable_alter = 0;
+// This used to be a tunable
+int fail_on_uncarryable_alter = 1;
 
 int do_alter_table(struct ireq *iq, struct schema_change_type *s,
                    tran_type *tran){
-    if (s->is_monitered_alter){
-        int rc = do_alter_table_normal(iq, s, tran);
-        if (rc == SC_CONVERSION_FAILED && !gbl_fail_on_uncarryable_alter){
-            // zTODO: are cleaning up this schema change object
-            s->cancelled = 1;
+    int rc = do_alter_table_normal(iq, s, tran);
+    if (s->is_monitered_alter && rc == SC_CONVERSION_FAILED && !fail_on_uncarryable_alter){
+        // The following if is for when you attempt this carried alter
+        //   and it doesn't work so it needs to be undone
+        // This feature is currently unused so we might delete it as
+        //   fail_on_uncarryable_alter is always 1
+        s->cancelled = 1;
 
-            struct schema_change_type *sc_rename = new_schemachange_type();
-            sc_rename->nothrevent = 1;
-            sc_rename->live = 1;
-            sc_rename->rename = SC_RENAME_LEGACY;
-            strcpy(sc_rename->tablename, s->tablename);
-            char *prefix = "old";
-            strcpy(sc_rename->newtable, prefix);
-            strcat(sc_rename->newtable, s->tablename);
+        struct schema_change_type *sc_rename = new_schemachange_type();
+        sc_rename->nothrevent = 1;
+        sc_rename->live = 1;
+        sc_rename->rename = SC_RENAME_LEGACY;
+        strcpy(sc_rename->tablename, s->tablename);
+        char *prefix = "old";
+        strcpy(sc_rename->newtable, prefix);
+        strcat(sc_rename->newtable, s->tablename);
 
-            
-            char **triggers;
-            int num_triggers;
-            bdb_get_audited_sp_tran(tran, s->tablename, &triggers, &num_triggers, AUDIT_TO_TRIGGER);
-            assert(num_triggers == 1);
-            char *trigger = triggers[0];
-            logmsg(LOGMSG_WARN, "trigger is: %s\n", trigger);
-            struct schema_change_type *sc_delete_trigger = new_schemachange_type();
-            strcpy(sc_delete_trigger->tablename, trigger);
-            sc_delete_trigger->is_trigger = 1;
-	        sc_delete_trigger->drop_table = 1;
+        
+        char **triggers;
+        int num_triggers;
+        bdb_get_audited_sp_tran(tran, s->tablename, &triggers, &num_triggers, AUDIT_TO_TRIGGER);
+        assert(num_triggers == 1);
+        char *trigger = triggers[0];
+        logmsg(LOGMSG_WARN, "trigger is: %s\n", trigger);
+        struct schema_change_type *sc_delete_trigger = new_schemachange_type();
+        strcpy(sc_delete_trigger->tablename, trigger);
+        sc_delete_trigger->is_trigger = 1;
+        sc_delete_trigger->drop_table = 1;
 
-            sc_rename->sc_chain_next = sc_delete_trigger;
-            
-            s->sc_chain_next = sc_rename;
+        sc_rename->sc_chain_next = sc_delete_trigger;
+        
+        s->sc_chain_next = sc_rename;
 
-            return SC_COMMIT_PENDING;
-        } else {
-            logmsg(LOGMSG_WARN, "do alter table finished with rc: %d\n", rc);
-            return rc;
-        }
+        return SC_COMMIT_PENDING;
     } else {
-        int rc = do_alter_table_normal(iq, s, tran);
         return rc;
     }
 }

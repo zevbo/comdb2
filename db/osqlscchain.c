@@ -6,10 +6,7 @@
 #include <sc_queues.h>
 #include <mem_override.h>
 
-// Errors I have gotten here:
-// 1. Two schema changes with the same tablename; ie: don't use reserved resources
-
-// zTODO: make sure that this format won't change up on us
+// Gets the table name from the trigger csc2
 static char *get_trigger_table_name(char *newcsc2){
     newcsc2 += strlen("table ");
     int len = 0;
@@ -46,14 +43,6 @@ static struct schema_change_type *gen_audited_lua(char *table_name, char *spname
     strcpy(code, code_start);
     strcat(code, table_name);
     strcat(code, code_end);
-    /*
-	zTODO: Got to make this work at some point
-    if (comdb2TokenToStr(nm, spname, sizeof(spname))) {
-        setError(pParse, SQLITE_MISUSE, "Procedure name is too long");
-        logmsg(LOGMSG_WARN, "Failure on comdb2TokenToStr\n");
-        return;
-    }
-    */
 
     struct schema_change_type *sc = new_schemachange_type();
     strcpy(sc->tablename, spname);
@@ -75,8 +64,10 @@ static struct schema_change_type *populate_audited_trigger_chain(struct schema_c
     return sc_full;
 }
 
-// zTODO: Better name
-static struct schema_change_type *populate_audit_alters(struct schema_change_type *sc){
+extern int gbl_cary_alters_to_audits;
+
+// zTODOc: Better name
+static struct schema_change_type *make_audit_alters_nothrevent(struct schema_change_type *sc){
     
     char **audits;
     int num_audits;
@@ -89,12 +80,10 @@ static struct schema_change_type *populate_audit_alters(struct schema_change_typ
 }
 
 struct schema_change_type *populate_sc_chain(struct schema_change_type *sc){
-    // zTODO: I'm putting this here cause I already want to kms b/c of it and this will remind me how bad it is
-    // sc->create_version_schema = create_version_schema;
     if (sc->is_trigger == AUDITED_TRIGGER && sc->dont_expand){
         return populate_audited_trigger_chain(sc);
-    } else if (sc->alteronly && sc->newcsc2) {
-        return populate_audit_alters(sc);
+    } else if (sc->alteronly && sc->newcsc2 && gbl_cary_alters_to_audits) {
+        return make_audit_alters_nothrevent(sc);
     } else {
         return sc;
     }
