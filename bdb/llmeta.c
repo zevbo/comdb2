@@ -171,7 +171,8 @@ typedef enum {
     LLMETA_TABLE_TO_AUDITS = 54,
     LLMETA_AUDIT_TO_TABLE = 55,
     LLMETA_TRIGGER_TO_AUDIT = 56,
-    LLMETA_AUDIT_TO_TRIGGER = 57
+    LLMETA_AUDIT_TO_TRIGGER = 57,
+    LLMETA_USER_PERMISSIONS = 58,
 } llmetakey_t;
 
 struct llmeta_file_type_key {
@@ -9419,11 +9420,67 @@ int bdb_get_default_versioned_sp_tran(tran_type *tran, char *name, char **versio
     return rc;
 }
 
+
+struct permissions_key {
+    llmetakey_t llmetakey;
+    char tablename[MAXTABLENAME]
+}
+
+enum permissions {
+    STANDARD_PERMISSION = 0,
+    NO_PERMISSION = 1,
+}
+struct permissions {
+    int alter_schema;
+    int alter_name;
+    int insert;
+    int update;
+    int delete;
+    int drop;
+}
+struct permissions_key create_permissions_key(char *tablename){
+    struct permissions_key k;
+    memset(k.tablename, 0, sizeof(k.tablename));
+    strcpy(k.tablename, tablename);
+    k.llmetakey = (llmetakey_t) LLMETA_USER_PERMISSIONS;
+    return k;
+}
+
+int bdb_get_permissions_tran(tran_type *tran, char *tablename, struct permissions *permissions){
+    struct audit_key k = create_permissions_key(tablename);
+    int *num;
+    int rc, bdberr;
+    rc = kv_get(tran, &k, sizeof(k), (void ***) (&&permissions), num, &bdberr);
+    if (num > 1){
+        logmsg(LOGMSG_WARN, "Found multiple permissions for table %s. Using permissions %s.", tablename, permissions);
+    }
+    return rc;
+}
+int bdb_delete_permissions_sp_tran(tran_type *tran, char *tablename){
+    struct audit_key get_key = create_audit_key(tablename);
+    char k[LLMETA_IXLEN] = {0};
+    memcpy(k, &get_key, sizeof(get_key)); 
+    int bdberr;
+    return kv_del(tran, &k, &bdberr);
+}
+int bdb_set_permissions_tran(tran_type *tran, char *tablename, struct permissions *permissions){
+    struct audit_key get_key = create_audit_key(tablename);
+    int rc = bdb_delete_permissions_sp_tran(tran, tablename);
+    if (rc) {return rc;}
+    char k[LLMETA_IXLEN] = {0};
+    memcpy(k, &get_key, sizeof(get_key)); 
+    int bdberr;
+    char *val = (char *) permissions;
+    rc = kv_put(tran, &k, val, sizeof(struct permissions), &bdberr);
+    return rc;
+}
+
+
 // Note: right now the format of the keys for all the audit tables are the same; some work will need to be put in to change that
 // Note about table to audits table: if the audit table is deleted, the entry is deleted. If the trigger is deleted, the entry is still deleted.
 struct audit_key {
-    char tablename[MAXTABLELEN];
     llmetakey_t llmetakey;
+    char tablename[MAXTABLELEN];
 };
 
 struct audit_key create_audit_key(char *tablename, enum llmeta_audit_key llmeta_audit_key){
