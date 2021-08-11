@@ -249,7 +249,7 @@ verify_directio|  off |Run expensive checks on directio calls
 parallel_sync|  on |Run checkpoint/memptrickle code with parallel writes
 verify_dbreg|  off |Periodically check if dbreg entries are correct
 verifycheckpoints|  off |Highly paranoid checkpoint validity checks
-support_datetime_in_triggers|  on |Enable support for datetime/interval types in triggers
+support_datetime_in_s|  on |Enable support for datetime/interval types in triggers
 prefix_foreign_keys|  on |Allow foreign key to be a prefix of your key
 superset_foreign_keys|  on |Allow foreign key to be a superset of your key
 repverifyrecs|  off |Verify every berkeley log record received
@@ -941,6 +941,8 @@ These options are toggle-able at runtime.
 |delay_sql_lock_release| 1 | Delay release locks in cursor move if bdb lock desired but client sends rows back
 |sockbplog| off | Osql bplog is sent from replicants to master on their own socket
 |sockbplog_sockpool| off | Osql bplog sent over sockets is using local sockpool
+|carry_alters_to_audits| off | If an alter is made to a table that has an active audit trigger, attempt the corresponding alter to the audit table
+
 
 
 <!-- TODO

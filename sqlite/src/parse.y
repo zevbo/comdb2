@@ -291,6 +291,7 @@ columnname(A) ::= nm(A) typetoken(Y). {sqlite3AddColumn(pParse,&A,&Y);}
   IGNORE IMMEDIATE INITIALLY INSTEAD LIKE_KW MATCH NO PLAN
   QUERY KEY OF OFFSET PRAGMA RAISE RECURSIVE RELEASE REPLACE RESTRICT ROW ROWS
   ROLLBACK SAVEPOINT SEQUENCE TEMP TRIGGER VACUUM VIEW VIRTUAL WITH WITHOUT
+  AUDIT
 %ifdef SQLITE_OMIT_COMPOUND_SELECT
   EXCEPT INTERSECT UNION
 %endif SQLITE_OMIT_COMPOUND_SELECT
@@ -2449,24 +2450,31 @@ cmd ::= createkw LUA SCALAR FUNCTION nm(Q). {
 
 cmd ::= createkw LUA AGGREGATE FUNCTION nm(Q). {
 	comdb2CreateAggFunc(pParse, &Q);
-}
+} 
 
 cmd ::= createkw LUA TRIGGER nm(Q) withsequence(S) ON table_trigger_event(T). {
-  comdb2CreateTrigger(pParse,0,S,&Q,T);
+  comdb2CreateTrigger(pParse,0,1,S,&Q,T);
+}
+
+cmd ::= createkw LUA AUDIT TRIGGER nm(Q) withsequence(S) ON single_table_trigger_event(T). {
+  comdb2CreateTrigger(pParse,0,2,S,&Q,T);
 }
 
 cmd ::= createkw LUA CONSUMER nm(Q) withsequence(S) ON table_trigger_event(T). {
-  comdb2CreateTrigger(pParse,1,S,&Q,T);
+  comdb2CreateTrigger(pParse,1,1,S,&Q,T);
+}
+
+single_table_trigger_event(A) ::= LP TABLE fullname(T) FOR trigger_events(B) RP. {
+  A = comdb2AddTriggerTable(pParse,0,T,B);
+}
+
+table_trigger_event(A) ::= single_table_trigger_event(B). {
+  A = B;
 }
 
 table_trigger_event(A) ::= table_trigger_event(B) COMMA LP TABLE fullname(T) FOR trigger_events(C) RP. {
   A = comdb2AddTriggerTable(pParse,B,T,C);
 }
-
-table_trigger_event(A) ::= LP TABLE fullname(T) FOR trigger_events(B) RP. {
-  A = comdb2AddTriggerTable(pParse,0,T,B);
-}
-
 %type withsequence {int}
 withsequence(A) ::= .                   { A = -1; }
 withsequence(A) ::= WITHOUT SEQUENCE.   { A = 0; }
@@ -2474,6 +2482,8 @@ withsequence(A) ::= WITH SEQUENCE.      { A = 1; }
 
 %type table_trigger_event {Cdb2TrigTables*}
 %destructor table_trigger_event {sqlite3DbFree(pParse->db, $$);}
+%type single_table_trigger_event {Cdb2TrigTables*}
+%destructor single_table_trigger_event {sqlite3DbFree(pParse->db, $$);}
 
 %type cdb2_trigger_event {Cdb2TrigEvent}
 %destructor cdb2_trigger_event {sqlite3IdListDelete(pParse->db, $$.cols);}

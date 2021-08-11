@@ -1742,7 +1742,7 @@ int osql_schemachange_logic(struct schema_change_type *sc,
     osqlstate_t *osql = &clnt->osql;
     int restarted;
     int rc = 0;
-    int count = 0;
+    int count = 0;    
 
     osql->running_ddl = 1;
 

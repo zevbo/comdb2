@@ -43,6 +43,7 @@
 #include "block_internal.h"
 #include "osqlsession.h"
 #include "osqlcomm.h"
+#include "osqlscchain.h"
 #include "sqloffload.h"
 #include "osqlrepository.h"
 #include "comdb2uuid.h"
@@ -1034,7 +1035,6 @@ static int apply_changes(struct ireq *iq, blocksql_tran_t *tran, void *iq_tran,
                                      blob_buffer_t blobs[MAXBLOBS], int,
                                      struct block_err *, int *))
 {
-
     int rc = 0;
     int out_rc = 0;
     int bdberr = 0;
@@ -1215,7 +1215,7 @@ int bplog_schemachange(struct ireq *iq, blocksql_tran_t *tran, void *err)
     iq->sc_should_abort = 0;
 
     rc = apply_changes(iq, tran, NULL, &nops, err, osql_process_schemachange);
-
+    
     if (rc)
         logmsg(LOGMSG_DEBUG, "apply_changes returns rc %d\n", rc);
 

@@ -1,0 +1,1 @@
+[CREATE LUA AUDIT TRIGGER too_greedy (TABLE t1 FOR INSERT), (TABLE t2 FOR DELETE)] failed with rc -3 near "(": syntax error

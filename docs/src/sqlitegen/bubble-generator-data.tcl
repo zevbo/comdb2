@@ -373,6 +373,11 @@ set all_graphs {
     {opt {line {or WITH WITHOUT} SEQUENCE}}
     {line ON {loop {line ( table-event )} ,}}
   }
+  create-audit-trigger {stack
+    {line CREATE LUA AUDIT TRIGGER /procedure-name}
+    {opt {line {or WITH WITHOUT} SEQUENCE}}
+    {line ON {line ( table-event )}}
+  }
   table-event {stack
     {line TABLE /table-name FOR }
     {loop {line

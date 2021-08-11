@@ -52,8 +52,10 @@
 #include <unistd.h>
 #include "osqlsqlnet.h"
 #include "osqlsqlsocket.h"
+#include "osqlscchain.h"
 #include "sc_global.h"
-
+#include "osqlscchain.h"
+#include <sc_logic.h>
 
 #define MAX_CLUSTER 16
 
@@ -5818,42 +5820,64 @@ int osql_process_schemachange(struct ireq *iq, unsigned long long rqid,
     else
         sc->nothrevent = 1;
     sc->finalize = 0;
-    if (sc->original_master_node[0] != 0 &&
-        strcmp(sc->original_master_node, gbl_myhostname))
-        sc->resume = 1;
 
-    iq->sc = sc;
-    sc->iq = iq;
-    sc->is_osql = 1;
-    if (sc->db == NULL) {
-        sc->db = get_dbtable_by_name(sc->tablename);
-    }
-    sc->tran = NULL;
-    if (sc->db)
-        iq->usedb = sc->db;
-
-    if (!timepart_is_timepart(sc->tablename, 1)) {
-        rc = start_schema_change_tran(iq, NULL);
-        if ((rc != SC_ASYNC && rc != SC_COMMIT_PENDING) ||
-            sc->preempted == SC_ACTION_RESUME ||
-            sc->alteronly == SC_ALTER_PENDING) {
-            iq->sc = NULL;
-        } else {
-            iq->sc->sc_next = iq->sc_pending;
-            iq->sc_pending = iq->sc;
-            iq->osql_flags |= OSQL_FLAGS_SCDONE;
+    while(sc){
+        sc = populate_sc_chain(sc);
+        if (sc->original_master_node[0] != 0 &&
+            strcmp(sc->original_master_node, gbl_myhostname))
+            sc->resume = 1;
+        //struct schema_change_type *next_sc = sc->sc_chain_next;
+        iq->sc = sc;
+        sc->iq = iq;
+        sc->is_osql = 1;
+        if (sc->db == NULL) {
+            sc->db = get_dbtable_by_name(sc->tablename);
         }
-    } else {
-        timepart_sc_arg_t arg = {0};
-        arg.s = sc;
-        arg.s->iq = iq;
-        rc = timepart_foreach_shard(sc->tablename,
-                                    start_schema_change_tran_wrapper, &arg, -1);
+        sc->tran = NULL;
+        if (sc->db)
+            iq->usedb = sc->db;
+        
+        struct schema_change_type *sc_chain_next = NULL;
+        if (!timepart_is_timepart(sc->tablename, 1)) {
+            rc = start_schema_change_tran(iq, NULL);
+            sc_chain_next = sc->sc_chain_next;
+            if ((rc != SC_ASYNC && rc != SC_COMMIT_PENDING) ||
+                sc->preempted == SC_ACTION_RESUME ||
+                sc->alteronly == SC_ALTER_PENDING) {
+
+                // zTODO: maybe not do this when action_resume or on alter_pending
+                
+                if (sc_chain_next){
+                    stop_and_free_sc_chain(iq, 0, sc_chain_next, 1);
+                }
+
+                sc_chain_next = NULL;
+                iq->sc = NULL;
+                // zTODO: it's possible this should be done in osqlblockproc
+                if (sc->nothrevent){
+                    stop_and_free_sc(iq, 0, sc, 1);
+                }
+            } else if (!sc->cancelled) {
+                iq->sc->sc_next = iq->sc_pending;
+                iq->sc_pending = iq->sc;
+                iq->osql_flags |= OSQL_FLAGS_SCDONE;
+            } else {
+                stop_and_free_sc(iq, 0, sc, 1);
+                iq->sc = NULL;
+            }
+        } else {
+            timepart_sc_arg_t arg = {0};
+            arg.s = sc;
+            arg.s->iq = iq;
+            rc = timepart_foreach_shard(sc->tablename,
+                                        start_schema_change_tran_wrapper, &arg, -1);
+        }
+        sc = sc_chain_next;
     }
     iq->usedb = NULL;
-
-    if (!rc || rc == SC_ASYNC || rc == SC_COMMIT_PENDING)
+    if (!rc || rc == SC_ASYNC || rc == SC_COMMIT_PENDING) {
         return 0;
+    }
 
     return ERR_SC;
 }
@@ -5925,7 +5949,6 @@ int osql_process_packet(struct ireq *iq, unsigned long long rqid, uuid_t uuid,
     int type;
     unsigned long long id;
     char *msg = *pmsg;
-
     if (rqid == OSQL_RQID_USE_UUID) {
         osql_uuid_rpl_t rpl;
         p_buf = (const uint8_t *)msg;
