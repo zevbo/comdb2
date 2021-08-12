@@ -795,6 +795,13 @@ int fail_on_uncarryable_alter = 1;
 
 int do_alter_table(struct ireq *iq, struct schema_change_type *s,
                    tran_type *tran){
+    struct permissions perms;
+    if (bdb_get_permissions_tran(tran, s->tablename, &perms)){
+        return SC_INTERNAL_ERROR;
+    }
+    if (perms.alter_schema && !s->bypass_perms){
+        return SC_PERMISSION_DENIED;
+    }
     int rc = do_alter_table_normal(iq, s, tran);
     if (s->is_monitered_alter && rc == SC_CONVERSION_FAILED && !fail_on_uncarryable_alter){
         // The following if is for when you attempt this carried alter

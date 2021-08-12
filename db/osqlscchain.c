@@ -58,7 +58,7 @@ static struct schema_change_type *populate_audit_trigger_chain(struct schema_cha
     struct schema_change_type *sc_proc = gen_audit_lua(sc_full->tablename, sc->tablename + 3);
     append_to_chain(sc_full, sc_proc);
     append_to_chain(sc_full, sc);
-    sc->dont_expand = 0;
+    sc->dont_expand = 1;
     sc->audit_table = sc_full->tablename;
     sc->trigger_table = tablename;
     return sc_full;
@@ -80,7 +80,7 @@ static struct schema_change_type *make_audit_alters_nothrevent(struct schema_cha
 }
 
 struct schema_change_type *populate_sc_chain(struct schema_change_type *sc){
-    if (sc->is_trigger == AUDIT_TRIGGER && sc->dont_expand){
+    if (sc->is_trigger == AUDIT_TRIGGER && !sc->dont_expand){
         return populate_audit_trigger_chain(sc);
     } else if (sc->alteronly && sc->newcsc2 && gbl_carry_alters_to_audits) {
         return make_audit_alters_nothrevent(sc);

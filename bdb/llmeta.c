@@ -9423,21 +9423,14 @@ int bdb_get_default_versioned_sp_tran(tran_type *tran, char *name, char **versio
 
 struct permissions_key {
     llmetakey_t llmetakey;
-    char tablename[MAXTABLENAME]
-}
+    char tablename[MAXTABLELEN];
+};
 
-enum permissions {
+enum permission_options {
     STANDARD_PERMISSION = 0,
     NO_PERMISSION = 1,
-}
-struct permissions {
-    int alter_schema;
-    int alter_name;
-    int insert;
-    int update;
-    int delete;
-    int drop;
-}
+};
+
 struct permissions_key create_permissions_key(char *tablename){
     struct permissions_key k;
     memset(k.tablename, 0, sizeof(k.tablename));
@@ -9445,34 +9438,49 @@ struct permissions_key create_permissions_key(char *tablename){
     k.llmetakey = (llmetakey_t) LLMETA_USER_PERMISSIONS;
     return k;
 }
+struct permissions default_perms(){
+    struct permissions perms = {0};
+    return perms;
+}
 
 int bdb_get_permissions_tran(tran_type *tran, char *tablename, struct permissions *permissions){
-    struct audit_key k = create_permissions_key(tablename);
-    int *num;
-    int rc, bdberr;
-    rc = kv_get(tran, &k, sizeof(k), (void ***) (&&permissions), num, &bdberr);
+    struct permissions_key k = create_permissions_key(tablename);
+    int rc, bdberr, num;
+    struct permissions **perm_ref = &permissions;
+    rc = kv_get(tran, &k, sizeof(k), (void ***) (&perm_ref), &num, &bdberr);
     if (num > 1){
-        logmsg(LOGMSG_WARN, "Found multiple permissions for table %s. Using permissions %s.", tablename, permissions);
+        logmsg(LOGMSG_WARN, "Found multiple permissions for table %s. Using permissions %s.", tablename, (char *) permissions);
+    }
+    if (num == 0){
+        logmsg(LOGMSG_WARN, "Found no permissions for table %s. Using default permissions.", tablename);
+        *permissions = default_perms();
     }
     return rc;
 }
-int bdb_delete_permissions_sp_tran(tran_type *tran, char *tablename){
-    struct audit_key get_key = create_audit_key(tablename);
+int bdb_delete_permissions_tran(tran_type *tran, char *tablename){
+    struct permissions_key get_key = create_permissions_key(tablename);
     char k[LLMETA_IXLEN] = {0};
     memcpy(k, &get_key, sizeof(get_key)); 
     int bdberr;
     return kv_del(tran, &k, &bdberr);
 }
-int bdb_set_permissions_tran(tran_type *tran, char *tablename, struct permissions *permissions){
-    struct audit_key get_key = create_audit_key(tablename);
-    int rc = bdb_delete_permissions_sp_tran(tran, tablename);
+int bdb_set_permissions_tran(tran_type *tran, char *tablename, struct permissions permissions){
+    int rc, bdberr, num;
+    struct permissions_key get_key = create_permissions_key(tablename);
+    // The next 3 lines, in short, fucking suck
+    struct permissions _perms = default_perms();
+    struct permissions *_perms_ref = & _perms;
+    struct permissions **_perms_ref_ref = & _perms_ref;
+    rc = kv_get(tran, &get_key, sizeof(get_key), (void ***) (&_perms_ref_ref), &num, &bdberr);
     if (rc) {return rc;}
+    if (num > 0){
+        rc = bdb_delete_permissions_tran(tran, tablename);
+        if (rc) {return rc;}
+    }
     char k[LLMETA_IXLEN] = {0};
     memcpy(k, &get_key, sizeof(get_key)); 
-    int bdberr;
-    char *val = (char *) permissions;
-    rc = kv_put(tran, &k, val, sizeof(struct permissions), &bdberr);
-    return rc;
+    char *val = (char *) &permissions;
+    return kv_put(tran, &k, val, sizeof(struct permissions), &bdberr);
 }
 
 

@@ -253,6 +253,7 @@ int do_add_table(struct ireq *iq, struct schema_change_type *s,
             unlock_schema_lk();
         return rc;
     }
+    bdb_set_permissions_tran(trans, s->tablename, s->perms);
 
     iq->usedb = s->db = db = s->newdb;
     db->sc_to = db;

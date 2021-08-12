@@ -234,6 +234,8 @@ struct schema_change_type {
     int is_monitered_alter;
     int cancelled; /* indicates that a schema changes has been "cancelled" in the prep phase, but should not fail the transaction */
     int dont_expand;
+    struct permissions perms;
+    int bypass_perms; /* for internally created schema changes */
 };
 
 struct ireq;
@@ -273,6 +275,7 @@ enum schema_change_rc {
     SC_ABORTED,
     SC_PREEMPTED,
     SC_DETACHED,
+    SC_PERMISSION_DENIED,
     SC_UNKNOWN_ERROR = -1,
     SC_CANT_SET_RUNNING = -99
 };

@@ -880,6 +880,10 @@ struct schema_change_type *create_audit_table_sc(char *name){
 	struct dbtable *db = get_dbtable_by_name(name);
 	sc->newcsc2 = get_audit_schema(db->schema);
 
+    sc->perms.alter_schema = 1;
+    sc->perms.alter_name = 1;
+    sc->perms.drop = 1;
+
     if (db->instant_schema_change) sc->instant_sc = 1;
 
 	// What is ODH? This is just copied from timepart
