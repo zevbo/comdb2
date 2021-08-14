@@ -3199,6 +3199,16 @@ void sqlite3DropTable(Parse *pParse, SrcList *pName, int isView, int noErr){
     if( noErr ) sqlite3CodeVerifyNamedSchema(pParse, pName->a[0].zDatabase);
     goto exit_drop_table;
   }
+
+  struct permissions perms;
+  if (bdb_get_permissions_tran(NULL, pTab->zName, &perms)){
+    goto exit_drop_table;
+  }
+  if (perms.drop){
+		sqlite3ErrorMsg(pParse, "permission denied to drop %s", pTab->zName);
+    goto exit_drop_table;
+  }
+  logmsg(LOGMSG_WARN, "perms.drop: %d\n", perms.drop);
   iDb = sqlite3SchemaToIndex(db, pTab->pSchema);
   assert( iDb>=0 && iDb<db->nDb );
 

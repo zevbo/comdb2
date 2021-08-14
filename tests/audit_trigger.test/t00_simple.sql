@@ -16,4 +16,5 @@ SELECT type, tbl, old_num, new_num from "$audit_t" ORDER BY new_num
 
 DROP TABLE t
 DROP LUA TRIGGER t_audit
+SELECT sleep(1)
 DROP TABLE "$audit_t"

@@ -795,6 +795,7 @@ int fail_on_uncarryable_alter = 1;
 
 int do_alter_table(struct ireq *iq, struct schema_change_type *s,
                    tran_type *tran){
+    /* this should never get triggered. But it remains here in case an alter schema case is missed */
     struct permissions perms;
     if (bdb_get_permissions_tran(tran, s->tablename, &perms)){
         return SC_INTERNAL_ERROR;

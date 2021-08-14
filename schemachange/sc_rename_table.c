@@ -29,14 +29,7 @@ int gbl_lightweight_rename = 0;
 int do_rename_table(struct ireq *iq, struct schema_change_type *s,
                     tran_type *tran)
 {
-
-    struct permissions perms;
-    if (bdb_get_permissions_tran(tran, s->tablename, &perms)){
-        return SC_INTERNAL_ERROR;
-    }
-    if (perms.alter_name && !s->bypass_perms){
-        return SC_PERMISSION_DENIED;
-    }
+    
     struct dbtable *db, *db2;
     iq->usedb = db = s->db = get_dbtable_by_name(s->tablename);
     if (db == NULL) {

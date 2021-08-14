@@ -9446,7 +9446,7 @@ struct permissions default_perms(){
 int bdb_get_permissions_tran(tran_type *tran, char *tablename, struct permissions *permissions){
     struct permissions_key k = create_permissions_key(tablename);
     int rc, bdberr, num;
-    struct permissions **perm_ref = &permissions;
+    void **perm_ref = (void **) malloc(sizeof(void *));
     rc = kv_get(tran, &k, sizeof(k), (void ***) (&perm_ref), &num, &bdberr);
     if (num > 1){
         logmsg(LOGMSG_WARN, "Found multiple permissions for table %s. Using permissions %s.", tablename, (char *) permissions);
@@ -9454,6 +9454,8 @@ int bdb_get_permissions_tran(tran_type *tran, char *tablename, struct permission
     if (num == 0){
         logmsg(LOGMSG_WARN, "Found no permissions for table %s. Using default permissions.", tablename);
         *permissions = default_perms();
+    } else {
+        memcpy(permissions, perm_ref[0], sizeof(struct permissions));
     }
     return rc;
 }
@@ -9464,7 +9466,7 @@ int bdb_delete_permissions_tran(tran_type *tran, char *tablename){
     int bdberr;
     return kv_del(tran, &k, &bdberr);
 }
-int bdb_set_permissions_tran(tran_type *tran, char *tablename, struct permissions permissions){
+int bdb_set_permissions_tran(tran_type *tran, char *tablename, struct permissions *permissions){
     int rc, bdberr, num;
     struct permissions_key get_key = create_permissions_key(tablename);
     // The next 3 lines, in short, fucking suck
@@ -9479,8 +9481,10 @@ int bdb_set_permissions_tran(tran_type *tran, char *tablename, struct permission
     }
     char k[LLMETA_IXLEN] = {0};
     memcpy(k, &get_key, sizeof(get_key)); 
-    char *val = (char *) &permissions;
-    return kv_put(tran, &k, val, sizeof(struct permissions), &bdberr);
+    rc = kv_put(tran, &k, (void *) permissions, sizeof(struct permissions), &bdberr);
+    struct permissions perms;
+    bdb_get_permissions_tran(tran, tablename, &perms);
+    return rc;
 }
 
 

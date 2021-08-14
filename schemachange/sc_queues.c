@@ -921,6 +921,8 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         assert(num_audits <= 1);
         if (num_audits == 1){
             bdb_delete_audit_table_sp_tran(trans, audits[0], 1);
+            struct permissions perms = default_perms();
+            bdb_set_permissions_tran(trans, audits[0], &perms);
         }
     }
     int rc = perform_trigger_update_int(sc);

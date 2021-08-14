@@ -9,5 +9,5 @@ SELECT sleep(1)
 SELECT new_i, new_s FROM "$audit_t" ORDER BY new_i
 
 DROP TABLE t
-DROP TABLE "$audit_t"
 DROP LUA TRIGGER shoutout_to_monse
+DROP TABLE "$audit_t"

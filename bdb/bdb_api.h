@@ -2217,16 +2217,16 @@ int bdb_get_versioned_sps(char ***names, int *num);
 int bdb_get_versioned_sps_tran(tran_type *tran, char ***names, int *num);
 
 struct permissions {
-    int alter_schema;
-    int alter_name;
-    int drop;
+    char alter_schema;
+    char alter_name;
+    char drop;
 };
 struct permissions default_perms();
 
 /* returns a default permissions if none exists */
 int bdb_get_permissions_tran(tran_type *tran, char *tablename, struct permissions *permissions);
 int bdb_delete_permissions_tran(tran_type *tran, char *tablename);
-int bdb_set_permissions_tran(tran_type *tran, char *tablename, struct permissions permissions);
+int bdb_set_permissions_tran(tran_type *tran, char *tablename, struct permissions *permissions);
 
 int bdb_get_audit_sp_tran(tran_type *tran, char *tablename, char ***audits, int *num, enum llmeta_audit_key llmeta_audit_key);
 int bdb_set_audit_sp_tran(tran_type *tran, char *sub_table, char *audit_table, enum llmeta_audit_key llmeta_audit_key);

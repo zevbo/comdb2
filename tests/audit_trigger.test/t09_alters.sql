@@ -6,6 +6,6 @@ SELECT * FROM t ORDER BY i
 SELECT new_i, old_i FROM "$audit_t" ORDER BY new_i, old_i
 SELECT new_e FROM "$audit_t"
 
+DROP LUA TRIGGER bloop
 DROP TABLE t 
 DROP TABLE "$audit_t"
-DROP LUA TRIGGER bloop

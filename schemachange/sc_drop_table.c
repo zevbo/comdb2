@@ -45,13 +45,6 @@ static int delete_table(struct dbtable *db, tran_type *tran)
 int do_drop_table(struct ireq *iq, struct schema_change_type *s,
                   tran_type *tran)
 {
-    struct permissions perms;
-    if (bdb_get_permissions_tran(tran, s->tablename, &perms)){
-        return SC_INTERNAL_ERROR;
-    }
-    if (perms.drop && !s->bypass_perms){
-        return SC_PERMISSION_DENIED;
-    }
     struct dbtable *db;
     iq->usedb = db = s->db = get_dbtable_by_name(s->tablename);
     if (db == NULL) {

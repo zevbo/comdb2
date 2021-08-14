@@ -73,6 +73,23 @@ int readIntFromToken(Token* t, int *rst)
 }
 
 /*
+Checks whether user has permission to alter the schema of this table
+zTODOc: currently repeated in alter.c. Must fix
+*/
+int check_alter_schema_perms(Parse *pParse, char *zName){
+  struct permissions perms;
+  if (bdb_get_permissions_tran(NULL, zName, &perms)){
+    return 1;
+  }
+  if (perms.alter_schema){
+	sqlite3ErrorMsg(pParse, "permission denied to alter schema of %s", zName);
+    return 1;
+  }
+  return 0;
+}
+
+
+/*
   Check whether a remote schema name is specified.
 
   If the schema name is specified and is either "main" or local
@@ -766,8 +783,12 @@ void comdb2AlterTableCSC2(
         return;
     }
 
+    // zTODOc: is our standard to combine these into one if?
     if (chkAndCopyTableTokens(pParse, sc->tablename, pName1, pName2,
                               ERROR_ON_TBL_NOT_FOUND, 1, 0))
+        goto out;
+
+    if(check_alter_schema_perms(pParse, sc->tablename))
         goto out;
 
     sc->alteronly = 1;
@@ -2510,6 +2531,15 @@ void sqlite3AlterRenameTable(Parse *pParse, Token *pSrcName, Token *pName,
 
     if (comdb2TokenToStr(pSrcName, table, sizeof(table))) {
         setError(pParse, SQLITE_MISUSE, "Table name is too long");
+        return;
+    }
+
+    struct permissions perms;
+    if (bdb_get_permissions_tran(NULL, table, &perms)){
+        return;
+    }
+    if (perms.alter_name){
+        sqlite3ErrorMsg(pParse, "permission denied to alter name of %s", table);
         return;
     }
 
@@ -4414,6 +4444,10 @@ void comdb2AlterTableStart(
     ctx->schema->name = comdb2_strdup(ctx->mem, ctx->tablename);
     if (ctx->schema->name == 0)
         goto oom;
+
+    if (check_alter_schema_perms(pParse, ctx->schema->name)){
+        goto cleanup;
+    }
 
     if (dryrun == 1)
         ctx->flags |= DDL_DRYRUN;

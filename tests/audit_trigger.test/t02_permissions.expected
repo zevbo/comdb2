@@ -1,0 +1,13 @@
+("-----------permission denied----------"='-----------permission denied----------')
+[ALTER TABLE "$audit_t" ADD COLUMN b int] failed with rc -3 permission denied to alter schema of $audit_t
+[ALTER TABLE "$audit_t" { schema { int b } }] failed with rc -3 permission denied to alter schema of $audit_t
+[DROP TABLE "$audit_t"$$] failed with rc -3 near "$$": syntax error
+[ALTER TABLE "$audit_t" RENAME TO blooper] failed with rc -3 permission denied to alter name of $audit_t
+[ALTER TABLE "$audit_t" DROP COLUMN old_i] failed with rc -3 permission denied to alter schema of $audit_t
+[ALTER TABLE "$audit_t" ADD UNIQUE INDEX "hello" (new_i, old_i)] failed with rc -3 permission denied to alter schema of $audit_t
+("-----------permission approved----------"='-----------permission approved----------')
+[ALTER TABLE "$audit_t" RENAME TO blooper] failed with rc 240 a schema change error occurred
+[ALTER TABLE blooper DROP COLUMN old_i] failed with rc -3 Table not found
+[ALTER TABLE blooper ADD UNIQUE INDEX "hello" (new_i, old_i)] failed with rc -3 Table not found
+[ALTER TABLE blooper { schema { int b } }] failed with rc -3 Table not found
+[DROP TABLE blooper] failed with rc -3 no such table: blooper

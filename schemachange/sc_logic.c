@@ -769,6 +769,7 @@ int do_schema_change_tran_thd(sc_arg_t *arg)
     thread_started("schema_change");
     bdb_thread_event(bdb_state, 1);
     rc = do_schema_change_tran_int(arg, 1);
+    //logmsg(LOGMSG_WARN, "tran int rc: %d [%d]\n", rc, arg->iq->sc->sc_rc);
     bdb_thread_event(bdb_state, 0);
     return rc;
 }

@@ -87,11 +87,12 @@ static void renameReloadSchema(Parse *pParse, int iDb){
   }
 }
 
+
 /*
 ** Generate code to implement the "ALTER TABLE xxx RENAME TO yyy" 
 ** command. 
 */
-void sqlite3AlterRenameTable(
+void sqlite3Alter(
   Parse *pParse,            /* Parser context. */
   SrcList *pSrc,            /* The table to rename. */
   Token *pName              /* The new table name. */
@@ -515,6 +516,7 @@ static int isRealTable(Parse *pParse, Table *pTab){
 **
 **  cmd ::= ALTER TABLE pSrc RENAME COLUMN pOld TO pNew
 */
+// zTODO: currently this bypasses alter_schema perms. Is this function even allowed in comdb2?
 void sqlite3AlterRenameColumn(
   Parse *pParse,                  /* Parsing context */
   SrcList *pSrc,                  /* Table being altered.  pSrc->nSrc==1 */
