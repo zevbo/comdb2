@@ -443,6 +443,7 @@ static int populate_alter_chain(struct dbtable *db, struct schema_change_type *s
         int rc = bdb_get_audit_sp_tran(tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
         //if (rc) {return rc;}
         struct schema *s = create_version_schema(sc->newcsc2, -1, db->dbenv);
+        logmsg(LOGMSG_DEBUG, "rc: %d\n", rc);
         for(int i = 0; i < num_audits; i++){
             add_next_to_chain(sc, init_sc_for_alter_audit(sc, s, audits[i]));
         }

@@ -906,6 +906,7 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         rc = bdb_set_audit_sp_tran(trans, trigger, audit_table, TRIGGER_TO_AUDIT);
         //if (rc) {return SC_INTERNAL_ERROR;}
         rc = bdb_set_audit_sp_tran(trans, audit_table, trigger, AUDIT_TO_TRIGGER);
+        logmsg(LOGMSG_DEBUG, "rc: %d\n", rc);
         //if (rc) {return SC_INTERNAL_ERROR;}
     } else if (sc->drop_table){
         char **audits;
@@ -917,6 +918,7 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         }
         if (num_audits == 1){
             rc = bdb_delete_audit_table_sp_tran(trans, audits[0], 1);
+            logmsg(LOGMSG_DEBUG, "rc: %d\n", rc);
             //if (rc) {return SC_INTERNAL_ERROR;}
         }
     }
