@@ -102,6 +102,7 @@ static struct schema_change_type *make_audit_alters_nothrevent(struct schema_cha
 }
 
 struct schema_change_type *populate_sc_chain(struct schema_change_type *sc, int *failed){
+    *failed = 0;
     if (sc->dont_expand){
         return sc;
     } if (sc->trigger_type == AUDIT_TRIGGER) {

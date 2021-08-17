@@ -900,26 +900,26 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         char *audit_table = strdup(sc->audit_table);
         char *trigger = strdup(sc->tablename);
         int rc = bdb_set_audit_sp_tran(trans, sub_table, audit_table, TABLE_TO_AUDITS);
-        //if (rc) {return SC_INTERNAL_ERROR;}
+        if(rc) {return SC_INTERNAL_ERROR;}
         rc = bdb_set_audit_sp_tran(trans, audit_table, sub_table, AUDIT_TO_TABLE);
-        //if (rc) {return SC_INTERNAL_ERROR;}
+        if(rc) {return SC_INTERNAL_ERROR;}
         rc = bdb_set_audit_sp_tran(trans, trigger, audit_table, TRIGGER_TO_AUDIT);
-        //if (rc) {return SC_INTERNAL_ERROR;}
+        if(rc) {return SC_INTERNAL_ERROR;}
         rc = bdb_set_audit_sp_tran(trans, audit_table, trigger, AUDIT_TO_TRIGGER);
         logmsg(LOGMSG_DEBUG, "rc: %d\n", rc);
-        //if (rc) {return SC_INTERNAL_ERROR;}
+        if(rc) {return SC_INTERNAL_ERROR;}
     } else if (sc->drop_table){
         char **audits;
         int num_audits;
         int rc = bdb_get_audit_sp_tran(trans, sc->tablename, &audits, &num_audits, TRIGGER_TO_AUDIT);
-        //if (rc){return SC_INTERNAL_ERROR;}
+        if(rc){return SC_INTERNAL_ERROR;}
         if (num_audits > 1){
             logmsg(LOGMSG_WARN, "Llmeta has multiple audit tables for trigger %s\n", sc->tablename);
         }
         if (num_audits == 1){
             rc = bdb_delete_audit_table_sp_tran(trans, audits[0], 1);
             logmsg(LOGMSG_DEBUG, "rc: %d\n", rc);
-            //if (rc) {return SC_INTERNAL_ERROR;}
+            if(rc) {return SC_INTERNAL_ERROR;}
         }
     }
     int rc = perform_trigger_update_int(sc);

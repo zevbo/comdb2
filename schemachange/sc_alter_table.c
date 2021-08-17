@@ -441,7 +441,7 @@ static int populate_alter_chain(struct dbtable *db, struct schema_change_type *s
         int num_audits = 0;
         // zTODOq: should the whole thing fail on a failed get?
         int rc = bdb_get_audit_sp_tran(tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
-        //if (rc) {return rc;}
+        if (rc) {return rc;}
         struct schema *s = create_version_schema(sc->newcsc2, -1, db->dbenv);
         logmsg(LOGMSG_DEBUG, "rc: %d\n", rc);
         for(int i = 0; i < num_audits; i++){
@@ -817,7 +817,7 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
         char **triggers;
         int num_triggers;
         rc = bdb_get_audit_sp_tran(tran, s->tablename, &triggers, &num_triggers, AUDIT_TO_TRIGGER);
-        //if (rc) {return rc;}
+        if(rc) {return rc;}
         assert(num_triggers == 1);
         char *trigger = triggers[0];
         struct schema_change_type *sc_delete_trigger = new_schemachange_type();
