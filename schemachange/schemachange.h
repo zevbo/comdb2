@@ -62,6 +62,10 @@ struct dest {
 /* status for schema_change_type->addonly */
 enum { SC_NOT_ADD = 0, SC_TO_ADD = 1, SC_DONE_ADD = 2 };
 
+/* type for trigger_type */
+enum { NO_TRIGGER = 0, NORMAL_TRIGGER = 1, AUDIT_TRIGGER = 2 };
+
+
 struct schema_change_type {
     /*  ==========    persistent members ========== */
     unsigned long long rqid;
@@ -87,7 +91,7 @@ struct schema_change_type {
     int partialuprecs; /* 1 if we're doing partial-table upgrade */
     int fulluprecs;    /* 1 if we're doing full-table upgrade */
     int alteronly;
-    int is_trigger;
+    int trigger_type;
     size_t newcsc2_len;
     char *newcsc2; /* malloced buffer containing the new schema */
     enum convert_scan_mode scanmode;
@@ -224,6 +228,12 @@ struct schema_change_type {
     unsigned is_osql : 1;
     unsigned set_running : 1;
     uint64_t seed;
+    char *trigger_table; /* only currently initialized for audit triggers */
+    char *audit_table; /* name of audit table if it is an audit trigger */
+    struct schema_change_type *sc_chain_next; /* chain schema changes to automatically be executed in the same transaction */
+    int is_monitered_alter; /* 1 if an alteronly scheamchange is altering an audit table in a chain, therefore monitering the subscribed trigger table */
+    int cancelled; /* indicates that a schema changes has been "cancelled" in the prep phase, but should not fail the transaction */
+    int dont_expand; /* flag to stop populate_alter_chain from expanding on a schema change */
 };
 
 struct ireq;
