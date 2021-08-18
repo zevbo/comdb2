@@ -54,7 +54,6 @@
 #include "osqlsqlsocket.h"
 #include "osqlscchain.h"
 #include "sc_global.h"
-#include "osqlscchain.h"
 #include <sc_logic.h>
 
 #define MAX_CLUSTER 16

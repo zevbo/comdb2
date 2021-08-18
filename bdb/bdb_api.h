@@ -2216,10 +2216,12 @@ int bdb_get_default_versioned_sps(char ***names, int *num);
 int bdb_get_versioned_sps(char ***names, int *num);
 int bdb_get_versioned_sps_tran(tran_type *tran, char ***names, int *num);
 
+char *get_spec_table(char *sub_table, char *audit_table);
+
 int bdb_get_audit_sp_tran(tran_type *tran, char *tablename, char ***audits, int *num, enum llmeta_audit_key llmeta_audit_key);
 int bdb_set_audit_sp_tran(tran_type *tran, char *sub_table, char *audit_table, enum llmeta_audit_key llmeta_audit_key);
 int bdb_delete_audit_sp_tran(tran_type *tran, char *sub_table, enum llmeta_audit_key llmeta_audit_key);
-int bdb_delete_audit_table_sp_tran(tran_type *tran, char *audit, int delete_single);
+int bdb_delete_audit_table_sp_tran(tran_type *tran, char *audit);
 
 int bdb_user_exists(tran_type *tran, char *user);
 int bdb_create_dba_user(bdb_state_type *bdb_state);

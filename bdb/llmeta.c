@@ -9184,22 +9184,11 @@ static int kv_put_int(tran_type *tran, void *k, void *v, size_t vlen,
     return bdb_lite_add(llmeta_bdb_state, tran, v, vlen, k, bdberr);
 }
 
-static int kv_put_opt(tran_type *tran, void *k, void *v, size_t vlen, int *bdberr, int delete_prev)
+static int kv_put(tran_type *tran, void *k, void *v, size_t vlen, int *bdberr)
 {
     tran_type *t = tran ? tran : bdb_tran_begin(llmeta_bdb_state, NULL, bdberr);
-    logmsg(LOGMSG_WARN, "delete prev: %d\n", delete_prev);
     int rc = 0;
-    if (delete_prev) {
-        rc = kv_put_int(t, k, v, vlen, bdberr);
-    } else {
-        /*
-        void **dtaout = (void **) malloc(sizeof(void *));
-        int lenout;
-        bdb_blkseq_insert(llmeta_bdb_state, tran, k, llmeta_bdb_state->ixlen[0], v, vlen, dtaout, &lenout);
-        free(dtaout);
-        */
-        bdb_lite_add(llmeta_bdb_state, tran, v, vlen, k, bdberr);
-    }
+    rc = kv_put_int(t, k, v, vlen, bdberr);
     if (tran == NULL) {
         if (rc == 0)
             rc = bdb_tran_commit(llmeta_bdb_state, t, bdberr);
@@ -9207,11 +9196,6 @@ static int kv_put_opt(tran_type *tran, void *k, void *v, size_t vlen, int *bdber
             rc = bdb_tran_abort(llmeta_bdb_state, t, bdberr);
     }
     return rc;
-}
-
-static int kv_put(tran_type *tran, void *k, void *v, size_t vlen, int *bdberr)
-{
-    return kv_put_opt(tran, k, v, vlen, bdberr, 1);
 }
 
 /*
@@ -9439,8 +9423,8 @@ int bdb_get_default_versioned_sp_tran(tran_type *tran, char *name, char **versio
 // Note: right now the format of the keys for all the audit tables are the same; some work will need to be put in to change that
 // Note about table to audits table: if the audit table is deleted, the entry is deleted. If the trigger is deleted, the entry is still deleted.
 struct audit_key {
-    char tablename[MAXTABLELEN];
     llmetakey_t llmetakey;
+    char tablename[MAXTABLELEN];
 };
 
 struct audit_key create_audit_key(char *tablename, enum llmeta_audit_key llmeta_audit_key){
@@ -9454,7 +9438,21 @@ struct audit_key create_audit_key(char *tablename, enum llmeta_audit_key llmeta_
 int bdb_get_audit_sp_tran(tran_type *tran, char *tablename, char ***audits, int *num, enum llmeta_audit_key llmeta_audit_key){
     struct audit_key k = create_audit_key(tablename, llmeta_audit_key);
     int rc, bdberr;
-    rc = kv_get(tran, &k, sizeof(k), (void ***) audits, num, &bdberr);
+    int size = sizeof(k);
+    if (llmeta_audit_key == TABLE_TO_AUDITS){
+        size = sizeof(llmetakey_t) + strlen(tablename);
+        int found_dollar = 0;
+        for(int i = 1; i < strlen(k.tablename); i++){
+            if (k.tablename[i] == '$'){
+                found_dollar = 1; 
+                break;
+            }
+        }
+        if (!found_dollar){
+            strcat(k.tablename, "$");
+        }
+    }
+    rc = kv_get(tran, &k, size, (void ***) audits, num, &bdberr);
     return rc;
 }
 
@@ -9463,7 +9461,7 @@ int bdb_set_audit_sp_tran(tran_type *tran, char *sub_table, char *audit_table, e
     char k[LLMETA_IXLEN] = {0};
     memcpy(k, &get_key, sizeof(get_key)); 
     int rc, bdberr;
-    rc = kv_put_opt(tran, &k, audit_table, strlen(audit_table) + 1, &bdberr, 0);
+    rc = kv_put(tran, &k, audit_table, strlen(audit_table) + 1, &bdberr);
     return rc;
 }
 
@@ -9475,37 +9473,31 @@ int bdb_delete_audit_sp_tran(tran_type *tran, char *sub_table, enum llmeta_audit
     return kv_del(tran, &k, &bdberr);
 }
 
-// zTODO: I feel like this isn't atomic, just because I might return at an rc in one
-//   spot and not complete but have already started
-static int bdb_delete_single_audit_sp_tran(tran_type *tran, char *sub_table, char *audit_table){
-    char **audits;
-    int num_audits;
-    int rc = bdb_get_audit_sp_tran(tran, sub_table, &audits, &num_audits, TABLE_TO_AUDITS);
-    if (rc) {return rc;}
-    rc = bdb_delete_audit_sp_tran(tran, sub_table, TABLE_TO_AUDITS);
-    if (rc) {return rc;}
-    // zTODOc: might want to create a function so that other people can do this too
-    logmsg(LOGMSG_WARN, "%s num_audits: %d [dropping %s]\n", sub_table, num_audits, audit_table);
-    for(int i = 0; i < num_audits; i++){
-        char *audit = audits[i];
-        logmsg(LOGMSG_WARN, "audit: %s\n", audit);
-        if (strcmp(audit, audit_table) != 0){
-            logmsg(LOGMSG_WARN, "still have entry for %s\n", sub_table);
-            int rc = bdb_set_audit_sp_tran(tran, sub_table, audit, TABLE_TO_AUDITS);
-            if (rc) {return rc;}
+char *get_spec_table(char *sub_table, char *audit_table){
+    int found_dollar = 0;
+    int i = 1;
+    while(i < strlen(audit_table)){
+        if (audit_table[i] == '$'){
+            found_dollar = 1;
         }
+        i++;
     }
-    return 0;
+    i--;
+    char *audit_table_num = found_dollar ? audit_table + i : "$1";
+    char *spec_sub_table = malloc(strlen(sub_table) + strlen(audit_table_num) + 1);
+    strcpy(spec_sub_table, sub_table);
+    strcat(spec_sub_table, audit_table_num);
+    return spec_sub_table;
 }
 
-int bdb_delete_audit_table_sp_tran(tran_type *tran, char *audit, int delete_single){
+int bdb_delete_audit_table_sp_tran(tran_type *tran, char *audit){
         
     char **sub_table;
     int num_sub_tables;
     int rc = bdb_get_audit_sp_tran(tran, audit, &sub_table, &num_sub_tables, AUDIT_TO_TABLE);
     if (rc) {return rc;}
     if (num_sub_tables == 1){
-        rc = bdb_delete_single_audit_sp_tran(tran, sub_table[0], audit);
+        rc = bdb_delete_audit_sp_tran(tran, get_spec_table(sub_table[0], audit), TABLE_TO_AUDITS);
         if (rc) {return rc;}
     } else {
         logmsg(LOGMSG_WARN, "In bdb_delete_audit_table_sp_tran, found no subscribed table");

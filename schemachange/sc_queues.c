@@ -896,23 +896,24 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     javasp_do_procedure_wrlock();
     if (sc->trigger_type == AUDIT_TRIGGER){
         // zTODOq: these should get freed on deletion. Do they?
-        char *sub_table = strdup(sc->trigger_table);
+
+        char *sub_table = get_spec_table(sc->trigger_table, sc->audit_table);
         char *audit_table = strdup(sc->audit_table);
         char *trigger = strdup(sc->tablename);
         int rc = bdb_set_audit_sp_tran(trans, sub_table, audit_table, TABLE_TO_AUDITS);
         if(rc) {return SC_INTERNAL_ERROR;}
-        rc = bdb_set_audit_sp_tran(trans, audit_table, sub_table, AUDIT_TO_TABLE);
+        rc = bdb_set_audit_sp_tran(trans, audit_table, sc->trigger_table, AUDIT_TO_TABLE);
         if(rc) {return SC_INTERNAL_ERROR;}
         rc = bdb_set_audit_sp_tran(trans, trigger, audit_table, TRIGGER_TO_AUDIT);
         if(rc) {return SC_INTERNAL_ERROR;}
         rc = bdb_set_audit_sp_tran(trans, audit_table, trigger, AUDIT_TO_TRIGGER);
         if(rc) {return SC_INTERNAL_ERROR;}
-        
+        //free(sub_table);
 
         char **triggers;
         int num_triggers;
-        rc = bdb_get_audit_sp_tran(trans, sub_table, &triggers, &num_triggers, TABLE_TO_AUDITS);
-        logmsg(LOGMSG_WARN, "num triggers for %s: %d\n", sub_table, num_triggers);
+        rc = bdb_get_audit_sp_tran(trans, sc->trigger_table, &triggers, &num_triggers, TABLE_TO_AUDITS);
+        logmsg(LOGMSG_WARN, "num triggers for %s: %d\n", sc->trigger_table, num_triggers);
         for(int i = 0; i < num_triggers; i++){
             logmsg(LOGMSG_WARN, "triggers[%d] = %s\n", i, triggers[i]);
         }
@@ -921,11 +922,8 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         int num_audits;
         int rc = bdb_get_audit_sp_tran(trans, sc->tablename, &audits, &num_audits, TRIGGER_TO_AUDIT);
         if(rc){return SC_INTERNAL_ERROR;}
-        if (num_audits > 1){
-            logmsg(LOGMSG_WARN, "Llmeta has multiple audit tables for trigger %s\n", sc->tablename);
-        }
         if (num_audits == 1){
-            rc = bdb_delete_audit_table_sp_tran(trans, audits[0], 1);
+            rc = bdb_delete_audit_table_sp_tran(trans, audits[0]);
             if(rc) {return SC_INTERNAL_ERROR;}
         }
     }
