@@ -58,6 +58,25 @@ int do_drop_table(struct ireq *iq, struct schema_change_type *s,
         return -1;
     }
 
+
+    /*
+    I shouldn't need any of this stuff
+    char **audits;
+    int num_audits;
+    int rc = bdb_get_audit_sp_tran(tran, s->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
+    if(rc) {return SC_INTERNAL_ERROR;}
+    for(int i = 0; i < num_audits; i++){
+        rc = bdb_delete_audit_table_sp_tran(tran, audits[i], 0);
+        if(rc) {return SC_INTERNAL_ERROR;}
+    }
+    if (num_audits){
+        rc = bdb_delete_audit_sp_tran(tran, s->tablename, TABLE_TO_AUDITS);
+        if(rc) {return SC_INTERNAL_ERROR;}
+    }
+    rc = bdb_delete_audit_table_sp_tran(tran, s->tablename, 1);
+    if(rc) {return SC_INTERNAL_ERROR;}
+    */
+
     return SC_OK;
 }
 

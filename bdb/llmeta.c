@@ -9479,23 +9479,29 @@ static int bdb_delete_single_audit_sp_tran(tran_type *tran, char *sub_table, cha
 }
 
 int bdb_delete_audit_table_sp_tran(tran_type *tran, char *audit, int delete_single){
-    if (delete_single) {
-        char **sub_table;
-        int num_sub_tables;
-        bdb_get_audit_sp_tran(tran, audit, &sub_table, &num_sub_tables, AUDIT_TO_TABLE);
-        assert(num_sub_tables <= 1);
-        if (num_sub_tables == 1){
-            bdb_delete_single_audit_sp_tran(tran, sub_table[0], audit);
-        }
+        
+    char **sub_table;
+    int num_sub_tables;
+    int rc = bdb_get_audit_sp_tran(tran, audit, &sub_table, &num_sub_tables, AUDIT_TO_TABLE);
+    if (rc) {return rc;}
+    if (num_sub_tables == 1){
+        rc = bdb_delete_single_audit_sp_tran(tran, sub_table[0], audit);
+        if (rc) {return rc;}
+    } else {
+        logmsg(LOGMSG_WARN, "In bdb_delete_audit_table_sp_tran, found no subscribed table");
     }
-    bdb_delete_audit_sp_tran(tran, audit, AUDIT_TO_TABLE);
+    rc = bdb_delete_audit_sp_tran(tran, audit, AUDIT_TO_TABLE);
+    if (rc) {return rc;}
     char **trigger;
     int num_triggers;
-    bdb_get_audit_sp_tran(tran, audit, &trigger, &num_triggers, AUDIT_TO_TRIGGER);
+    rc = bdb_get_audit_sp_tran(tran, audit, &trigger, &num_triggers, AUDIT_TO_TRIGGER);
+    if (rc) {return rc;}
     assert(num_triggers <= 1);
-    bdb_delete_audit_sp_tran(tran, audit, AUDIT_TO_TRIGGER);
+    rc = bdb_delete_audit_sp_tran(tran, audit, AUDIT_TO_TRIGGER);
+    if (rc) {return rc;}
     if (num_triggers == 1){
-        bdb_delete_audit_sp_tran(tran, trigger[0], TRIGGER_TO_AUDIT);
+        rc = bdb_delete_audit_sp_tran(tran, trigger[0], TRIGGER_TO_AUDIT);
+        if (rc) {return rc;}
     }
     return 0;
 }
