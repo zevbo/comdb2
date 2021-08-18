@@ -439,7 +439,6 @@ static int populate_alter_chain(struct dbtable *db, struct schema_change_type *s
     if (sc->newcsc2){
         char **audits;
         int num_audits = 0;
-        // zTODOq: should the whole thing fail on a failed get?
         int rc = bdb_get_audit_sp_tran(tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS);
         if (rc) {return rc;}
         struct schema *s = create_version_schema(sc->newcsc2, -1, db->dbenv);
@@ -801,8 +800,12 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
     if (s->is_monitered_alter && rc == SC_CONVERSION_FAILED && !fail_on_uncarryable_alter){
         // The following if is for when you attempt this carried alter
         //   and it doesn't work so it needs to be undone
-        // This feature is currently unused so we might delete it as
-        //   fail_on_uncarryable_alter is always 1
+        // This feature is currently unused, and in my opinion should be
+        //   re-enabled when it becomes the default to carry alters, which
+        //   itself should happen when triggers by default start
+        //   automatically expanding to new columns
+        // With that said, if its decided that its not a useful feature,
+        //   this can be deleted
 
         struct schema_change_type *sc_rename = new_schemachange_type();
         sc_rename->nothrevent = 1;

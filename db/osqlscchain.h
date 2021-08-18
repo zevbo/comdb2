@@ -29,10 +29,7 @@
  schema changes based on results of previous schema changes. I think
  we still need to keep this initial populate though, as sometimes you
  need to flip schema changes so that the original schema change isn't executed
- first. Also, it is nice to be able to do stuff based on the first sc.
- With that said (zTODO?) it might be beneficial to get rid of this one
- as it can be replaced with schema changes that do not do anything except
- for populating more schema changes in the chain */
+ first. */
 
 struct schema_change_type *populate_sc_chain(struct schema_change_type *sc, int *failed);
 #endif

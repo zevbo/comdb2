@@ -16,9 +16,7 @@
 
 #ifndef INCLUDE_SC_QUEUES_H
 #define INCLUDE_SC_QUEUES_H
-// zTODOq: Check if this is okay
 #include "bdb_api.h"
-// zTODOq: Is this okay?
 #include "sc_add_table.h"
 
 int do_alter_queues_int(struct schema_change_type *);

@@ -113,13 +113,11 @@ static struct schema_change_type *populate_audit_trigger_chain(struct schema_cha
 
 extern int gbl_carry_alters_to_audits;
 
-// zTODOc: Better name
 static struct schema_change_type *make_audit_alters_nothrevent(struct schema_change_type *sc, int *failed){
 
     char **audits;
     int num_audits;
 
-    // zTODOq: should the whole thing fail if this does? probably...
     if (bdb_get_audit_sp_tran(sc->tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS)){
         *failed = 1;
     } else if(num_audits > 0) {

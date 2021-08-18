@@ -867,7 +867,6 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     javasp_do_procedure_wrlock();
     if (sc->is_trigger == AUDIT_TRIGGER){
         // zTODOq: these should get freed on deletion. Do they?
-
         char *sub_table = get_spec_table(sc->trigger_table, sc->audit_table);
         char *audit_table = strdup(sc->audit_table);
         char *trigger = strdup(sc->tablename);
