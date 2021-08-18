@@ -860,41 +860,12 @@ char *get_audit_schema(struct schema *schema){
     assert(strlen(audit_schema) == len);
 	return audit_schema;
 }
-
-struct schema_change_type *create_audit_table_sc(char *name){
-	struct schema_change_type *sc = new_schemachange_type();
-    sc->sc_chain_next = NULL;
-
-    // It's totally possible any of the immediatly below section is wrong
-    sc->onstack = 1;
-	sc->type = DBTYPE_TAGGED_TABLE;
-	sc->scanmode = gbl_default_sc_scanmode;
-    sc->live = 1;
-
-	sc->addonly = 1;
-
-	char *prefix = "$audit_";
-	strcpy(sc->tablename, prefix);
-	strcat(sc->tablename, name);
-	struct dbtable *db = get_dbtable_by_name(name);
-	sc->newcsc2 = get_audit_schema(db->schema);
-
-    if (db->instant_schema_change) sc->instant_sc = 1;
-
-	// What is ODH? This is just copied from timepart
-	if (db->odh) sc->headers = 1;
-
-    make_name_available(sc->tablename);
-
-	return sc;
-}
-
 int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
     tran_type *trans)
 {
     wrlock_schema_lk();
     javasp_do_procedure_wrlock();
-    if (sc->trigger_type == AUDIT_TRIGGER){
+    if (sc->is_trigger == AUDIT_TRIGGER){
         // zTODOq: these should get freed on deletion. Do they?
 
         char *sub_table = get_spec_table(sc->trigger_table, sc->audit_table);

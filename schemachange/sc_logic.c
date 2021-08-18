@@ -558,7 +558,7 @@ char *get_ddl_type_str(struct schema_change_type *s)
         return "DEFAULTSP";
     else if (s->showsp)
         return "SHOWSP";
-    else if (s->trigger_type)
+    else if (s->is_trigger)
         return "IS_TRIGGER";
     else if (s->is_sfunc)
         return "IS_SFUNC";
@@ -641,7 +641,7 @@ static int do_schema_change_tran_int(sc_arg_t *arg, int no_reset)
         rc = do_default_sp(s, iq);
     else if (s->showsp)
         rc = do_show_sp(s);
-    else if (s->trigger_type)
+    else if (s->is_trigger)
         rc = perform_trigger_update(s, iq, trans);
     else if (s->is_sfunc)
         rc = do_lua_sfunc(s);
@@ -824,7 +824,7 @@ int finalize_schema_change_thd(struct ireq *iq, tran_type *trans)
         rc = finalize_del_sp(s);
     else if (s->defaultsp)
         rc = finalize_default_sp(s);
-    else if (s->trigger_type)
+    else if (s->is_trigger)
         rc = finalize_trigger(s, trans);
     else if (s->is_sfunc)
         rc = finalize_lua_sfunc();

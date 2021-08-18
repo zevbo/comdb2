@@ -691,7 +691,7 @@ static void osql_scdone_commit_callback(struct ireq *iq)
                 bdb_state_type *bdb_state = 0;
                 scdone_t type = invalid;
 
-                if (s->trigger_type || s->is_sfunc || s->is_afunc) {
+                if (s->is_trigger || s->is_sfunc || s->is_afunc) {
                     /* already sent scdone in finalize_schema_change_thd */
                     type = invalid;
                 } else if (s->fastinit && s->drop_table)

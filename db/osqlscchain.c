@@ -134,7 +134,7 @@ struct schema_change_type *populate_sc_chain(struct schema_change_type *sc, int 
     *failed = 0;
     if (sc->dont_expand){
         return sc;
-    } if (sc->trigger_type == AUDIT_TRIGGER) {
+    } if (sc->is_trigger == AUDIT_TRIGGER) {
         return populate_audit_trigger_chain(sc);
     } else if (sc->alteronly && sc->newcsc2 && gbl_carry_alters_to_audits) {
         return make_audit_alters_nothrevent(sc, failed);

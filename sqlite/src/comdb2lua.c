@@ -143,7 +143,7 @@ Cdb2TrigTables *comdb2AddTriggerTable(Parse *parse, Cdb2TrigTables *tables,
 }
 
 // dynamic -> consumer
-void comdb2CreateTrigger(Parse *parse, int dynamic, int trigger_type, int seq, Token *proc,
+void comdb2CreateTrigger(Parse *parse, int dynamic, int is_trigger, int seq, Token *proc,
                          Cdb2TrigTables *tbl)
 {
     if (comdb2IsPrepareOnly(parse))
@@ -175,7 +175,7 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, int trigger_type, int seq, T
 		return;
 	}
 
-	if (trigger_type != AUDIT_TRIGGER && comdb2LocateSP(parse, spname) != 0) {
+	if (is_trigger != AUDIT_TRIGGER && comdb2LocateSP(parse, spname) != 0) {
 		return;
 	}
 
@@ -216,7 +216,7 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, int trigger_type, int seq, T
 		free(prev);
 		num_tables++;
 	}
-	if (num_tables > 1 && trigger_type == AUDIT_TRIGGER){
+	if (num_tables > 1 && is_trigger == AUDIT_TRIGGER){
 		sqlite3ErrorMsg(parse, "cannot create audit trigger on multiple tables: %s", spname);
 		return;
 	}
@@ -226,7 +226,7 @@ void comdb2CreateTrigger(Parse *parse, int dynamic, int trigger_type, int seq, T
 
 	// trigger add table:qname dest:method
 	struct schema_change_type *sc = new_schemachange_type();
-	sc->trigger_type = trigger_type;
+	sc->is_trigger = is_trigger;
 	sc->addonly = 1;
     sc->persistent_seq = seq;
 	sc->dont_expand = 0;
@@ -276,7 +276,7 @@ void comdb2DropTrigger(Parse *parse, int dynamic, Token *proc)
 	}
 	// trigger drop table:qname
 	struct schema_change_type *sc = new_schemachange_type();
-	sc->trigger_type = 1;
+	sc->is_trigger = 1;
 	sc->drop_table = 1;
 	strcpy(sc->tablename, qname);
 	Vdbe *v = sqlite3GetVdbe(parse);

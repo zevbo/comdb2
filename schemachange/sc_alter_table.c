@@ -821,7 +821,7 @@ int do_alter_table(struct ireq *iq, struct schema_change_type *s,
         char *trigger = triggers[0];
         struct schema_change_type *sc_delete_trigger = new_schemachange_type();
         strcpy(sc_delete_trigger->tablename, trigger);
-        sc_delete_trigger->trigger_type = 1;
+        sc_delete_trigger->is_trigger = 1;
         sc_delete_trigger->drop_table = 1;
 
         sc_rename->sc_chain_next = sc_delete_trigger;

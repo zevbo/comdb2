@@ -126,6 +126,8 @@ When turned on, any alter applied to the audited table will also do the correspo
 alter to the audit table. Due to current limitations of trigger functionality, this feature
 is for the most part only useful for type changes, as the data of new columns will not get tracked.
 
+Note: if you already have a procedure of the same name as the audit_trigger, it works just fine as the audit_trigger creates a procedure with the version 'build-in audit'. If your procedure also has that version, the audit_trigger will overwrite your procedure.
+
 #### Current Audit Trigger Limitations
 
 * There is currently no way to create an audit table as a time partition through the audit trigger
