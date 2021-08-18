@@ -36,6 +36,34 @@ static char *get_trigger_table_name(char *newcsc2){
 
 extern int gbl_audit_trigger_debug;
 
+static struct schema_change_type *create_audit_table_sc(char *name){
+	struct schema_change_type *sc = new_schemachange_type();
+    sc->sc_chain_next = NULL;
+
+    // It's totally possible any of the immediatly below section is wrong
+    sc->onstack = 1;
+	sc->type = DBTYPE_TAGGED_TABLE;
+	sc->scanmode = gbl_default_sc_scanmode;
+    sc->live = 1;
+
+	sc->addonly = 1;
+
+	char *prefix = "$audit_";
+	strcpy(sc->tablename, prefix);
+	strcat(sc->tablename, name);
+	struct dbtable *db = get_dbtable_by_name(name);
+	sc->newcsc2 = get_audit_schema(db->schema);
+
+    if (db->instant_schema_change) sc->instant_sc = 1;
+
+	// What is ODH? This is just copied from timepart
+	if (db->odh) sc->headers = 1;
+
+    make_name_available(sc->tablename);
+
+	return sc;
+}
+
 static struct schema_change_type *gen_audit_lua(char *table_name, char *spname){
 	char *code_start =
     "local function main(event)\n"
@@ -95,6 +123,7 @@ static struct schema_change_type *make_audit_alters_nothrevent(struct schema_cha
     if (bdb_get_audit_sp_tran(sc->tran, sc->tablename, &audits, &num_audits, TABLE_TO_AUDITS)){
         *failed = 1;
     } else if(num_audits > 0) {
+        // If the alters are being carried through, you need to do them synchronously
         sc->nothrevent = 1;
     }
     return sc;

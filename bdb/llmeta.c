@@ -168,10 +168,11 @@ typedef enum {
     LLMETA_VIEW = 51,                 /* User defined views */
     LLMETA_SCHEMACHANGE_HISTORY = 52, /* 52 + SEED[8] */
     LLMETA_SEQUENCE_VALUE = 53,
-    LLMETA_TABLE_TO_AUDITS = 54,
-    LLMETA_AUDIT_TO_TABLE = 55,
-    LLMETA_TRIGGER_TO_AUDIT = 56,
-    LLMETA_AUDIT_TO_TRIGGER = 57
+    // If this creats a compile error, simply change the numbers for TABLE_TO_AUDITS, AUDIT_TO_TABLE, TRIGGER_TO_AUDIT or AUDIT_TO_TRIGGER
+    LLMETA_TABLE_TO_AUDITS = TABLE_TO_AUDITS,
+    LLMETA_AUDIT_TO_TABLE = AUDIT_TO_TABLE,
+    LLMETA_TRIGGER_TO_AUDIT = TRIGGER_TO_AUDIT,
+    LLMETA_AUDIT_TO_TRIGGER = AUDIT_TO_TRIGGER
 } llmetakey_t;
 
 struct llmeta_file_type_key {
@@ -9440,7 +9441,6 @@ int bdb_get_audit_sp_tran(tran_type *tran, char *tablename, char ***audits, int 
     int rc, bdberr;
     int size = sizeof(k);
     if (llmeta_audit_key == TABLE_TO_AUDITS){
-        size = sizeof(llmetakey_t) + strlen(tablename);
         int found_dollar = 0;
         for(int i = 1; i < strlen(k.tablename); i++){
             if (k.tablename[i] == '$'){
@@ -9451,6 +9451,7 @@ int bdb_get_audit_sp_tran(tran_type *tran, char *tablename, char ***audits, int 
         if (!found_dollar){
             strcat(k.tablename, "$");
         }
+        size = sizeof(llmetakey_t) + strlen(tablename);
     }
     rc = kv_get(tran, &k, size, (void ***) audits, num, &bdberr);
     return rc;
