@@ -37,8 +37,7 @@ int do_del_qdb_file(struct ireq *iq, struct schema_change_type *s,
 
 int finalize_del_qdb_file(struct ireq *iq, struct schema_change_type *s,
                           tran_type *tran);
-int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
-    tran_type *trans);
+int perform_trigger_update(struct schema_change_type *sc, tran_type *trans);
 int finalize_trigger(struct schema_change_type *s, tran_type *trans);
 char *get_audit_schema(struct schema *schema);
 void make_name_available(char *prefix);

@@ -860,8 +860,7 @@ char *get_audit_schema(struct schema *schema){
     assert(strlen(audit_schema) == len);
 	return audit_schema;
 }
-int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
-    tran_type *trans)
+int perform_trigger_update(struct schema_change_type *sc, tran_type *trans)
 {
     wrlock_schema_lk();
     javasp_do_procedure_wrlock();
