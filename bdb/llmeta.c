@@ -9184,10 +9184,22 @@ static int kv_put_int(tran_type *tran, void *k, void *v, size_t vlen,
     return bdb_lite_add(llmeta_bdb_state, tran, v, vlen, k, bdberr);
 }
 
-static int kv_put(tran_type *tran, void *k, void *v, size_t vlen, int *bdberr)
+static int kv_put_opt(tran_type *tran, void *k, void *v, size_t vlen, int *bdberr, int delete_prev)
 {
     tran_type *t = tran ? tran : bdb_tran_begin(llmeta_bdb_state, NULL, bdberr);
-    int rc = kv_put_int(t, k, v, vlen, bdberr);
+    logmsg(LOGMSG_WARN, "delete prev: %d\n", delete_prev);
+    int rc = 0;
+    if (delete_prev) {
+        rc = kv_put_int(t, k, v, vlen, bdberr);
+    } else {
+        /*
+        void **dtaout = (void **) malloc(sizeof(void *));
+        int lenout;
+        bdb_blkseq_insert(llmeta_bdb_state, tran, k, llmeta_bdb_state->ixlen[0], v, vlen, dtaout, &lenout);
+        free(dtaout);
+        */
+        bdb_lite_add(llmeta_bdb_state, tran, v, vlen, k, bdberr);
+    }
     if (tran == NULL) {
         if (rc == 0)
             rc = bdb_tran_commit(llmeta_bdb_state, t, bdberr);
@@ -9195,6 +9207,11 @@ static int kv_put(tran_type *tran, void *k, void *v, size_t vlen, int *bdberr)
             rc = bdb_tran_abort(llmeta_bdb_state, t, bdberr);
     }
     return rc;
+}
+
+static int kv_put(tran_type *tran, void *k, void *v, size_t vlen, int *bdberr)
+{
+    return kv_put_opt(tran, k, v, vlen, bdberr, 1);
 }
 
 /*
@@ -9446,7 +9463,7 @@ int bdb_set_audit_sp_tran(tran_type *tran, char *sub_table, char *audit_table, e
     char k[LLMETA_IXLEN] = {0};
     memcpy(k, &get_key, sizeof(get_key)); 
     int rc, bdberr;
-    rc = kv_put(tran, &k, audit_table, strlen(audit_table) + 1, &bdberr);
+    rc = kv_put_opt(tran, &k, audit_table, strlen(audit_table) + 1, &bdberr, 0);
     return rc;
 }
 
@@ -9468,9 +9485,12 @@ static int bdb_delete_single_audit_sp_tran(tran_type *tran, char *sub_table, cha
     rc = bdb_delete_audit_sp_tran(tran, sub_table, TABLE_TO_AUDITS);
     if (rc) {return rc;}
     // zTODOc: might want to create a function so that other people can do this too
+    logmsg(LOGMSG_WARN, "%s num_audits: %d [dropping %s]\n", sub_table, num_audits, audit_table);
     for(int i = 0; i < num_audits; i++){
         char *audit = audits[i];
+        logmsg(LOGMSG_WARN, "audit: %s\n", audit);
         if (strcmp(audit, audit_table) != 0){
+            logmsg(LOGMSG_WARN, "still have entry for %s\n", sub_table);
             int rc = bdb_set_audit_sp_tran(tran, sub_table, audit, TABLE_TO_AUDITS);
             if (rc) {return rc;}
         }

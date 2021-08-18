@@ -907,6 +907,15 @@ int perform_trigger_update(struct schema_change_type *sc, struct ireq *iq,
         if(rc) {return SC_INTERNAL_ERROR;}
         rc = bdb_set_audit_sp_tran(trans, audit_table, trigger, AUDIT_TO_TRIGGER);
         if(rc) {return SC_INTERNAL_ERROR;}
+        
+
+        char **triggers;
+        int num_triggers;
+        rc = bdb_get_audit_sp_tran(trans, sub_table, &triggers, &num_triggers, TABLE_TO_AUDITS);
+        logmsg(LOGMSG_WARN, "num triggers for %s: %d\n", sub_table, num_triggers);
+        for(int i = 0; i < num_triggers; i++){
+            logmsg(LOGMSG_WARN, "triggers[%d] = %s\n", i, triggers[i]);
+        }
     } else if (sc->drop_table){
         char **audits;
         int num_audits;
